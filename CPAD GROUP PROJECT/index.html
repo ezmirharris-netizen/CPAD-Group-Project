@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillSwap</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+<div class="app">
+
+    <aside class="sidebar">
+        <div class="logo">
+            <i class="fa-solid fa-graduation-cap"></i>
+            <h2>SkillSwap</h2>
+        </div>
+
+        <nav>
+            <button class="active" onclick="showPage('dashboard')">
+                <i class="fa-solid fa-chart-pie"></i> Dashboard
+            </button>
+            <button onclick="showPage('marketplace')">
+                <i class="fa-solid fa-store"></i> Marketplace
+            </button>
+            <button onclick="showPage('booking')">
+                <i class="fa-solid fa-calendar-check"></i> Booking
+            </button>
+            <button onclick="showPage('messages')">
+                <i class="fa-solid fa-comment-dots"></i> Messages
+            </button>
+            <button onclick="showPage('wallet')">
+                <i class="fa-solid fa-wallet"></i> Wallet
+            </button>
+            <button onclick="showPage('calendar')">
+                <i class="fa-solid fa-calendar-days"></i> Calendar
+            </button>
+            <button onclick="showPage('admin')">
+                <i class="fa-solid fa-shield-halved"></i> Admin
+            </button>
+        </nav>
+    </aside>
+
+    <main class="content">
+
+        <section id="dashboard" class="page">
+            <div class="header">
+                <h1>Dashboard</h1>
+                <p class="subtitle">Welcome back! Here's your overview.</p>
+            </div>
+
+            <div class="stats">
+                <div class="card stat-card">
+                    <div class="stat-icon earnings"><i class="fa-solid fa-money-bill-wave"></i></div>
+                    <div>
+                        <h3>Earnings</h3>
+                        <p>RM500</p>
+                    </div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-icon bookings"><i class="fa-solid fa-book-open"></i></div>
+                    <div>
+                        <h3>Bookings</h3>
+                        <p>25</p>
+                    </div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-icon rating"><i class="fa-solid fa-star"></i></div>
+                    <div>
+                        <h3>Rating</h3>
+                        <p>4.9</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="marketplace" class="page hidden">
+            <div class="header">
+                <h1>Marketplace</h1>
+                <p class="subtitle">Find the perfect tutor for your next skill.</p>
+            </div>
+
+            <div class="search-container card">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="searchInput" placeholder="Search for a tutor or a specific skill...">
+                <button onclick="searchTutor()">Search</button>
+            </div>
+
+            <div id="tutorGrid" class="tutor-grid"></div>
+
+            <div id="tutorProfileModal" class="modal hidden" onclick="handleBackdropClick(event)">
+                <div class="modal-content card">
+                    <span class="close-button" onclick="closeProfileModal()">&times;</span>
+                    
+                    <div class="profile-header">
+                        <div class="profile-avatar" id="modalProfileAvatar">JS</div>
+                        <div>
+                            <h2 id="modalProfileName">Tutor Name</h2>
+                            <span id="modalProfileFaculty" class="badge badge-primary">Faculty Name</span>
+                        </div>
+                    </div>
+                    
+                    <div class="profile-details">
+                        <div class="detail-item">
+                            <i class="fa-solid fa-lightbulb"></i>
+                            <span id="modalProfileSkill">Skill</span>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fa-solid fa-tag"></i>
+                            <span id="modalProfilePrice" class="highlight-price">RM0/hr</span>
+                        </div>
+                    </div>
+                    
+                    <p id="modalProfileBio" class="bio-text"></p>
+                    
+                    <div class="reviews-section">
+                        <h3><i class="fa-solid fa-star"></i> Tutee Reviews & Feedback</h3>
+                        <div id="modalProfileReviews" class="reviews-list"></div>
+                    </div>
+                    
+                    <button class="btn-large" onclick="createBookingFromModal()">Book Class Session</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="booking" class="page hidden">
+            <div class="header">
+                <h1>My Bookings</h1>
+                <p class="subtitle">Track active lessons, requests, and history.</p>
+            </div>
+            <div id="bookingList" class="booking-list"></div>
+        </section>
+
+        <section id="messages" class="page hidden">
+            <div class="header">
+                <h1>Messages</h1>
+            </div>
+            <div class="card chat-wrapper">
+                <div class="chat-sidebar">
+                    <h3>Tutors</h3>
+                    <div id="conversationList" class="conversation-list"></div>
+                </div>
+                <div class="chat-area">
+                    <div class="chat-window-header">
+                        <h3 id="activeChatPartner">Select a tutor to chat</h3>
+                    </div>
+                    <div id="chatMessages" class="chat-messages"></div>
+                    
+                    <div class="chat-input-area">
+                        <input type="text" id="messageInput" placeholder="Type your message as Tutee...">
+                        <button class="btn-icon" onclick="sendMessage()">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="wallet" class="page hidden">
+            <div class="header">
+                <h1>Wallet Dashboard</h1>
+            </div>
+            
+            <div class="wallet-layout">
+                <div class="card wallet-card">
+                    <div class="wallet-icon"><i class="fa-solid fa-wallet"></i></div>
+                    <h2>Current Balance</h2>
+                    <h1 id="walletBalance">RM 150</h1>
+                </div>
+
+                <div class="wallet-records">
+                    <div class="card record-card">
+                        <h3><i class="fa-solid fa-list-check"></i> Recent Transactions</h3>
+                        <div id="transactionList" class="list-feed"></div>
+                    </div>
+
+                    <div class="card record-card">
+                        <h3><i class="fa-solid fa-hourglass-half"></i> Upcoming Payments Due</h3>
+                        <div id="upcomingPaymentsList" class="list-feed"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="calendar" class="page hidden">
+            <div class="header">
+                <h1>Schedule Calendar</h1>
+                <p class="subtitle">Select a highlighted date to inspect your scheduled tuition sessions.</p>
+            </div>
+
+            <div class="calendar-wrapper">
+                <div class="card calendar-main">
+                    <div class="calendar-header">
+                        <button class="cal-nav-btn" onclick="prevMonth()"><i class="fa-solid fa-chevron-left"></i></button>
+                        <h2 id="calendarMonthYear">June 2026</h2>
+                        <button class="cal-nav-btn" onclick="nextMonth()"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                    <div class="calendar-weekdays">
+                        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                    </div>
+                    <div id="calendarDaysGrid" class="calendar-days-grid"></div>
+                </div>
+
+                <div class="card calendar-details-panel" id="calendarDetailsPanel">
+                    <div class="empty-state">
+                        <i class="fa-solid fa-calendar-day"></i>
+                        <h3>No Date Selected</h3>
+                        <p>Click on any highlighted calendar cell to inspect tuition class timings and tutor details.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="admin" class="page hidden">
+            <div class="header">
+                <h1>Admin Dashboard</h1>
+            </div>
+            <div class="stats">
+                <div class="card stat-card">
+                    <div class="stat-icon primary"><i class="fa-solid fa-users"></i></div>
+                    <div>
+                        <h3>Total Users</h3>
+                        <h1 id="totalUsers"></h1>
+                    </div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-icon primary"><i class="fa-solid fa-chalkboard-user"></i></div>
+                    <div>
+                        <h3>Total Tutors</h3>
+                        <h1 id="totalTutors"></h1>
+                    </div>
+                </div>
+                <div class="card stat-card">
+                    <div class="stat-icon primary"><i class="fa-solid fa-calendar-check"></i></div>
+                    <div>
+                        <h3>Total Bookings</h3>
+                        <h1 id="totalBookings"></h1>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+</div>
+
+<script src="js/script.js"></script>
+</body>
+</html>
