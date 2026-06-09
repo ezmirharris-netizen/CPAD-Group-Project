@@ -213,3 +213,162 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px v
 .feed-amount.income { color: var(--success); }
 .feed-amount.expense { color: var(--text-main); }
 .feed-amount.due { color: var(--danger); }
+
+/* =========================================
+   AUTHENTICATION GATEWAY AND PROFILE STYLES
+========================================= */
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: var(--bg-main);
+    padding: 20px;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 450px;
+    padding: 35px;
+}
+
+.auth-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+    background: var(--bg-main);
+    padding: 5px;
+    border-radius: var(--radius-md);
+}
+
+.auth-tab {
+    flex: 1;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+}
+
+.auth-tab.active {
+    background: var(--card-bg);
+    color: var(--primary);
+    box-shadow: var(--shadow);
+}
+
+.form-group {
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.form-select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--card-bg);
+    outline: none;
+    font-size: 0.95rem;
+}
+
+.form-select:focus {
+    border-color: var(--primary);
+}
+
+input:disabled {
+    background: var(--bg-main);
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* =========================================
+   EXTENDED STYLES FOR AUTH & FILTER UTILITIES
+========================================= */
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: var(--bg-main);
+    padding: 20px;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 440px;
+    padding: 30px;
+}
+
+.auth-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    background: var(--bg-main);
+    padding: 4px;
+    border-radius: var(--radius-md);
+}
+
+.auth-tab {
+    flex: 1;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.auth-tab.active {
+    background: var(--card-bg);
+    color: var(--primary);
+    box-shadow: var(--shadow);
+}
+
+.form-group {
+    margin-bottom: 14px;
+    text-align: left;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.form-select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--card-bg);
+    outline: none;
+}
+
+input:disabled {
+    background: var(--bg-main);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Operational Active Filter Tabs Utility */
+.btn-outline.active {
+    background: var(--primary) !important;
+    color: white !important;
+    border-color: var(--primary) !important;
+}
+
+.user-badge-sidebar:hover {
+    background: var(--primary-light);
+}
