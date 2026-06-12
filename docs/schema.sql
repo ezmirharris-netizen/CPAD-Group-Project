@@ -1,0 +1,15 @@
+CREATE DATABASE IF NOT EXISTS SkillSwap
+    CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE SkillSwap;
+
+DROP TABLE IF EXISTS User;
+
+CREATE TABLE user(
+    id INT AUTO_INCREMENT PRIMARY KEY;
+    name VARCHAR(200) NOT NULL;
+    email VARCHAR(200) NOT NULL UNIQUE;
+    password_hash(200) NOT NULL;
+    faculty VARCHAR(200) NOT NULL;
+    photo_url VARCHAR(200) NOT NULL UNIQUE;
+    bio VARCHAR(500);
+) ENGINE=InnoDB;
