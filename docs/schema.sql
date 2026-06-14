@@ -16,6 +16,7 @@ CREATE TABLE User(
     password_hash VARCHAR(255) NOT NULL,
     faculty VARCHAR(200) NOT NULL,
     photo_url VARCHAR(200) NOT NULL,
+    role VARCHAR(100) NOT NULL,
     bio TEXT
 ) ENGINE=InnoDB;
 

@@ -2,7 +2,7 @@
 namespace App\Models;
 use PDO;
 
-final class User
+final class UserModels
 {
     //used for creating objects
     //private PDO $pdo to store connection inside the class
