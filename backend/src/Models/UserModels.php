@@ -16,7 +16,7 @@ final class UserModels
         $sql = 'SELECT * FROM User'; //change the placeholder to the table name
         $args = []; // to store value to be inserted into prepared statement
         if ($q !== '') {
-            $sql .= 'WHERE name LIKE :q OR email LIKE :q';
+            $sql .= ' WHERE name LIKE :q OR email LIKE :q';
             $args[':q'] = '%' . $q . '%'; //$q will be replaced with the search value
         }
         $sql .= ' ORDER BY id ASC';
@@ -93,7 +93,7 @@ final class UserModels
     //find the user by email for log in purposes
     public function findByEmail(string $email): ?array{
         $stmt = $this->pdo->prepare('SELECT id, name, email, password_hash FROM User WHERE email = :email');
-        $stmt->execute(['email'=> mb_strtolower(trim($email))]);
+        $stmt->execute([':email'=> mb_strtolower(trim($email))]);
         $row = $stmt->fetch();
         return $row === false ? null : $row;
     }
