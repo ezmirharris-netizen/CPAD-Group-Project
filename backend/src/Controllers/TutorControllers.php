@@ -2,53 +2,35 @@
 
 namespace App\Controllers;
 
-use App\Models\SkillModel;
+use App\Models\UserModels;
+use App\Models\SkillModels;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
 class TutorController
 {
     public function __construct(
-        private SkillModel $skillModel
+        private UserModels $userModel,
+        private SkillModels $skillModel
     ) {}
 
-    public function getAllTutors(
-        Request $request,
-        Response $response
-    ) {
-        $skills = $this->skillModel->all();
+    public function getAllTutors(Request $request, Response $response): Response
+    {
+        $tutors = $this->userModel->getAllTutors();
 
-        $response->getBody()->write(
-            json_encode($skills)
-        );
-
-        return $response
-            ->withHeader(
-                'Content-Type',
-                'application/json'
-            );
+        $response->getBody()->write(json_encode($tutors));
+        return $response->withHeader('Content-Type', 'application/json');
     }
 
-    public function searchTutor(
-        Request $request,
-        Response $response
-    ) {
-        $params = $request->getQueryParams();
-
+    public function searchTutor(Request $request, Response $response): Response
+    {
+        $params  = $request->getQueryParams();
         $keyword = $params['keyword'] ?? '';
+        $faculty = $params['faculty'] ?? '';
 
-        $skills = $this->skillModel->search(
-            $keyword
-        );
+        $tutors = $this->userModel->getAllTutors($keyword, $faculty);
 
-        $response->getBody()->write(
-            json_encode($skills)
-        );
-
-        return $response
-            ->withHeader(
-                'Content-Type',
-                'application/json'
-            );
+        $response->getBody()->write(json_encode($tutors));
+        return $response->withHeader('Content-Type', 'application/json');
     }
 }
