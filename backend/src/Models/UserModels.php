@@ -1,100 +1,159 @@
 <?php
+
 namespace App\Models;
+
 use PDO;
 
-final class UserModels
+class UserModels
 {
-    //used for creating objects
-    //private PDO $pdo to store connection inside the class
-    public function __construct(private PDO $pdo)
+    public function __construct(private PDO $pdo) {}
+
+    public function findByEmail(string $email): ?array
     {
+        $stmt = $this->pdo->prepare('SELECT * FROM User WHERE email = ? LIMIT 1');
+        $stmt->execute([$email]);
+        $row = $stmt->fetch();
+        return $row ?: null;
     }
 
-    //to return all the user from database
-    public function all(string $q = '', int $limit = 0): array
-    {
-        $sql = 'SELECT * FROM User'; //change the placeholder to the table name
-        $args = []; // to store value to be inserted into prepared statement
-        if ($q !== '') {
-            $sql .= ' WHERE name LIKE :q OR email LIKE :q';
-            $args[':q'] = '%' . $q . '%'; //$q will be replaced with the search value
-        }
-        $sql .= ' ORDER BY id ASC';
-        //limit the rows to be returned
-        if ($limit > 0)
-            $sql .= ' LIMIT ' . max(1, $limit);
-        $stmt = $this->pdo->prepare($sql); //creates prepared statement to ensure security
-        $stmt->execute($args);
-        return $stmt->fetchAll();
-    }
-
-    //find record using ID
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT * FROM User WHERE id = :id');
-        $stmt->execute([':id' => $id]);
-        $row = $stmt->fetch();//fetch the matched one row
-        return $row === false ? null : $row; //return null if not found
+        $stmt = $this->pdo->prepare('SELECT * FROM User WHERE id = ? LIMIT 1');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+        return $row ?: null;
     }
 
-    //function to create new user
-    public function create(array $b): int
-    {
-        $sql = 'INSERT INTO User (name, email, faculty, photo_url, bio)
-        VALUES (:name, :email, :faculty, :photo_url, :bio)';
-        $this->pdo->prepare($sql)->execute([
-            ':name' => trim($b['name']),
-            ':email' => trim($b['email']),
-            ':faculty' => trim($b['faculty']),
-            ':photo_url' => trim($b['photo_url']),
-            ':bio' => trim($b['bio'] ?? 'Empty Bio'),
-        ]);
+    public function createUser(
+        string $name,
+        string $email,
+        string $passwordHash,
+        string $faculty = '',
+        string $role    = 'tutee',
+        string $bio     = ''
+    ): int {
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO User (name, email, password_hash, faculty, photo_url, role, bio)
+             VALUES (?, ?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([$name, $email, $passwordHash, $faculty, '', $role, $bio]);
         return (int) $this->pdo->lastInsertId();
     }
 
-    //to update user
-    public function update(int $id, array $b): int
+    public function update(int $id, array $fields): bool
     {
-        $sets = [];//Store the field to be updated
-        $args = [':id' => $id];//Store the value for SQL parameters
-        foreach (['name', 'email', 'faculty', 'photo_url', 'bio'] as $f) {
-            //check field if exist
-            if (array_key_exists($f, $b)) {
-                $sets[] = "$f=:$f";
-                $args[":$f"] = trim($b[$f]);//store the updated value
+        if (empty($fields)) return false;
+
+        $allowed = ['name', 'faculty', 'bio', 'photo_url'];
+        $sets    = [];
+        $values  = [];
+
+        foreach ($allowed as $col) {
+            if (array_key_exists($col, $fields)) {
+                $sets[]   = "$col = ?";
+                $values[] = $fields[$col];
             }
         }
 
-        //function to validate year
-        if (array_key_exists('year', $b)) {
-            $sets[] = 'year=:year';
-            $args[':year'] =
-                (int) $b['year'];
-        }
-        if (!$sets)
-            return 0;
-        $sql = 'UPDATE User SET ' . implode(',', $sets) . ' WHERE id=:id';
-        /* implode to convert the query to [],[]
-        *example: 'name=:name','email=:email'
-        */
+        if (empty($sets)) return false;
+
+        $values[] = $id;
+        $sql  = 'UPDATE User SET ' . implode(', ', $sets) . ' WHERE id = ?';
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($args);
-        return $stmt->rowCount();
+        return $stmt->execute($values);
     }
 
-    //delete user function
-    public function delete(int $id): bool
+    public function getAllTutors(string $keyword = '', string $faculty = ''): array
     {
-        $stmt = $this->pdo->prepare('DELETE FROM User WHERE id = :id');
-        $stmt->execute([':id' => $id]);
-        return $stmt->rowCount() === 1;
+        $sql = '
+            SELECT
+                u.id,
+                u.name,
+                u.faculty,
+                u.bio,
+                u.photo_url,
+                s.id   AS skill_id,
+                s.name AS skill,
+                us.hourly_rate AS price,
+                us.hourly_rate AS rate_per_hour,
+                us.level,
+                COALESCE(
+                    (SELECT AVG(r.rating)
+                       FROM Review r
+                       JOIN Booking b ON b.id = r.booking_id
+                      WHERE b.tutor_id = u.id),
+                    4.5
+                ) AS rating
+            FROM User u
+            JOIN UserSkill us ON us.user_id = u.id
+            JOIN Skill s      ON s.id       = us.skill_id
+            WHERE u.role = ?
+        ';
+
+        $params = ['tutor'];
+
+        if ($keyword) {
+            $sql     .= ' AND (u.name LIKE ? OR s.name LIKE ? OR u.bio LIKE ? OR u.faculty LIKE ?)';
+            $like     = '%' . $keyword . '%';
+            $params   = array_merge($params, [$like, $like, $like, $like]);
+        }
+
+        if ($faculty) {
+            $sql    .= ' AND u.faculty = ?';
+            $params[] = $faculty;
+        }
+
+        $sql .= ' ORDER BY u.name, s.name';
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
     }
 
-    //find the user by email for log in purposes
-    public function findByEmail(string $email): ?array{
-        $stmt = $this->pdo->prepare('SELECT id, name, email, password_hash FROM User WHERE email = :email');
-        $stmt->execute([':email'=> mb_strtolower(trim($email))]);
-        $row = $stmt->fetch();
-        return $row === false ? null : $row;
+    public function getConversations(int $userId): array
+    {
+        $sql = '
+            SELECT DISTINCT
+                CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END AS other_id,
+                u.name AS other_name,
+                u.role AS other_role,
+                (SELECT body FROM Message
+                  WHERE (sender_id = ? AND receiver_id = other_id)
+                     OR (sender_id = other_id AND receiver_id = ?)
+                  ORDER BY sent_at DESC LIMIT 1) AS last_message,
+                (SELECT sent_at FROM Message
+                  WHERE (sender_id = ? AND receiver_id = other_id)
+                     OR (sender_id = other_id AND receiver_id = ?)
+                  ORDER BY sent_at DESC LIMIT 1) AS last_at
+            FROM Message m
+            JOIN User u ON u.id = CASE WHEN m.sender_id = ? THEN m.receiver_id ELSE m.sender_id END
+            WHERE m.sender_id = ? OR m.receiver_id = ?
+        ';
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$userId, $userId, $userId, $userId, $userId, $userId, $userId, $userId]);
+        return $stmt->fetchAll();
+    }
+
+    public function getMessages(int $meId, int $otherId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT m.*, u.name AS sender_name, u.role AS sender_role
+               FROM Message m
+               JOIN User u ON u.id = m.sender_id
+              WHERE (m.sender_id = ? AND m.receiver_id = ?)
+                 OR (m.sender_id = ? AND m.receiver_id = ?)
+              ORDER BY m.sent_at ASC'
+        );
+        $stmt->execute([$meId, $otherId, $otherId, $meId]);
+        return $stmt->fetchAll();
+    }
+
+    public function sendMessage(int $senderId, int $receiverId, string $body): int
+    {
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO Message (sender_id, receiver_id, body, sent_at) VALUES (?, ?, ?, NOW())'
+        );
+        $stmt->execute([$senderId, $receiverId, $body]);
+        return (int) $this->pdo->lastInsertId();
     }
 }

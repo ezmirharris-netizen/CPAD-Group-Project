@@ -1,64 +1,59 @@
 <?php
+
 namespace App\Models;
+
 use PDO;
 
-final class SkillModels
+class SkillModels
 {
-    //used for creating objects
-    //private PDO $pdo to store connection inside the class
-    public function __construct(private PDO $pdo)
+    public function __construct(private PDO $pdo) {}
+
+    public function findAll(): array
     {
+        return $this->pdo->query('SELECT * FROM Skill ORDER BY category, name')->fetchAll();
     }
 
-    //find record using ID
-    public function find(int $id): array
+    public function findById(int $id): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT * FROM Skill WHERE id = :id');
-        $stmt->execute([':id' => $id]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);//fetch the matched one row
-        return $row === false ? null : $row; //return null if not found
+        $stmt = $this->pdo->prepare('SELECT * FROM Skill WHERE id = ? LIMIT 1');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+        return $row ?: null;
     }
 
-    //function to create new skill
-    public function create(array $b): int
+    public function findByCategory(string $category): array
     {
-        $sql = 'INSERT INTO Skill (name, category)
-        VALUES (:name, :category)';
-        $this->pdo->prepare($sql)->execute([
-            ':name' => trim($b['name']),
-            ':category' => trim($b['category']),
-        ]);
+        $stmt = $this->pdo->prepare('SELECT * FROM Skill WHERE category = ? ORDER BY name');
+        $stmt->execute([$category]);
+        return $stmt->fetchAll();
+    }
+
+    public function getUserSkills(int $userId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT s.*, us.hourly_rate, us.level
+               FROM Skill s
+               JOIN UserSkill us ON us.skill_id = s.id
+              WHERE us.user_id = ?
+              ORDER BY s.name'
+        );
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll();
+    }
+
+    public function addUserSkill(int $userId, int $skillId, float $hourlyRate, string $level): int
+    {
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO UserSkill (user_id, skill_id, hourly_rate, level) VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE hourly_rate = VALUES(hourly_rate), level = VALUES(level)'
+        );
+        $stmt->execute([$userId, $skillId, $hourlyRate, $level]);
         return (int) $this->pdo->lastInsertId();
     }
 
-    //to update skills
-    public function update(int $id, array $b): int
+    public function removeUserSkill(int $userId, int $skillId): bool
     {
-        $sets = [];
-        $args = [':id' => $id];
-        foreach(['name', 'category'] as $f) {
-            //check field if exist
-            if(array_key_exists($f, $b)){
-                $sets[] = "$f=:$f";
-                $args[":$f"] = trim($b[$f]);//store the updated value
-            }
-        }
-
-        if(empty($sets)){
-            return 0;
-        }
-
-        $sql = 'UPDATE Skill SET ' . implode(', ', $sets) . ' WHERE id = :id';
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($args);
-
-        return $stmt->rowCount();
-    }
-
-    public function delete(int $id): bool
-    {
-        $stmt = $this->pdo->prepare('DELETE FROM Skill WHERE id = :id');
-        $stmt->execute(['id' => $id]);
-        return $stmt->rowCount() === 1;
+        $stmt = $this->pdo->prepare('DELETE FROM UserSkill WHERE user_id = ? AND skill_id = ?');
+        return $stmt->execute([$userId, $skillId]);
     }
 }
