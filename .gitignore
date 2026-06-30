@@ -1,0 +1,12 @@
+# Node dependencies (Vite, npm, etc.)
+node_modules/
+.vite/
+
+# PHP dependencies (Composer)
+vendor/
+.phpunit.result.cache
+
+# Environment variables (highly sensitive!)
+.env
+.env.local
+.env.*.local

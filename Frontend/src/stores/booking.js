@@ -39,7 +39,8 @@ export const useBookingStore = defineStore('booking', {
     bookings:       [],
     loading:        false,
     error:          null,
-    paidBookingIds: load('paidBookingIds', [])
+    paidBookingIds: load('paidBookingIds', []),
+    recordingLinks: load('recordingLinks', {})
   }),
 
   getters: {
@@ -48,7 +49,11 @@ export const useBookingStore = defineStore('booking', {
 
   actions: {
     _persist() {
-      save({ bookings: this.bookings, paidBookingIds: this.paidBookingIds })
+      save({
+        bookings:       this.bookings,
+        paidBookingIds: this.paidBookingIds,
+        recordingLinks: this.recordingLinks
+      })
     },
 
     // Re-read the paid-booking flags for whichever account is currently
@@ -169,6 +174,20 @@ export const useBookingStore = defineStore('booking', {
 
       try { await api.delete(`/bookings/${id}`) } catch {}
       this.bookings = this.bookings.filter(b => b.id !== id)
+      this._persist()
+    },
+
+    // ── Recorded session links (links only, kept for repeat reference) ──────
+    setRecordingLink(id, url) {
+      if (!url) return
+      this.recordingLinks = { ...this.recordingLinks, [id]: url }
+      this._persist()
+    },
+
+    removeRecordingLink(id) {
+      const next = { ...this.recordingLinks }
+      delete next[id]
+      this.recordingLinks = next
       this._persist()
     }
   }

@@ -6,7 +6,6 @@ import { useBookingStore } from '../stores/booking'
 import { useAdminStore }   from '../stores/admin'
 import UserManagement    from '../components/admin/UserManagement.vue'
 import ContentModeration from '../components/admin/ContentModeration.vue'
-import DisputeResolution from '../components/admin/DisputeResolution.vue'
 import AuditLog          from '../components/admin/AuditLog.vue'
 
 const tutorStore   = useTutorStore()
@@ -140,8 +139,6 @@ function rejectSession(id)  { tutorStore.rejectSession(id) }
   <UserManagement />
   <br>
   <ContentModeration />
-  <br>
-  <DisputeResolution />
   <br>
   <AuditLog />
 
