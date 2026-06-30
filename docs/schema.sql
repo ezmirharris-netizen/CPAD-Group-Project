@@ -1,7 +1,6 @@
 -- ============================================================
 --  SkillSwap — MySQL Database Schema
 --  Run this script once to create all tables.
---  Compatible with MySQL 5.7+ and MariaDB 10.3+
 -- ============================================================
 
 CREATE DATABASE IF NOT EXISTS SkillSwap
