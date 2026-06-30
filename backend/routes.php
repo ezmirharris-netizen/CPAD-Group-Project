@@ -148,6 +148,7 @@ return function(App $app) {
             $pdo->prepare('UPDATE `users` SET role = role WHERE id = ?')->execute([$args['id']]);
             // We track suspension in a separate flag — for now mark in bio
         }
+<<<<<<< HEAD
         $pdo->prepare('INSERT INTO `audit_log` (admin_id, action, target_type, target_id, details) VALUES (?,?,?,?,?)')
             ->execute([
                 (int)$user['id'],
@@ -156,10 +157,13 @@ return function(App $app) {
                 (int)$args['id'],
                 'Status changed via admin panel.'
             ]);
+=======
+>>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
         $response->getBody()->write(json_encode(['success' => true]));
         return $response->withHeader('Content-Type', 'application/json');
     })->add(new JwtAuthMiddleware());
 
+<<<<<<< HEAD
     // ─── ADMIN: CONTENT MODERATION ────────────────────────
     $app->get('/api/admin/reports', function($request, $response) use ($pdo) {
         $user = $request->getAttribute('user');
@@ -236,6 +240,8 @@ return function(App $app) {
     })->add(new JwtAuthMiddleware());
 
 
+=======
+>>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
     // ─── SEED (one-time demo data setup) ─────────────────
     $app->get('/api/seed', function($request, $response) use ($pdo) {
         $seeder = new \App\Data\SeedData($pdo);

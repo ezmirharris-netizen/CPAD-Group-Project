@@ -1,9 +1,15 @@
 <?php return array(
     'root' => array(
         'name' => 'skillswap-marketplace/backend',
+<<<<<<< HEAD
         'pretty_version' => '1.0.0+no-version-set',
         'version' => '1.0.0.0',
         'reference' => null,
+=======
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => '28d7f1a4bc08a1ab13fd25b138fe57b44655a755',
+>>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -149,9 +155,15 @@
             'dev_requirement' => false,
         ),
         'skillswap-marketplace/backend' => array(
+<<<<<<< HEAD
             'pretty_version' => '1.0.0+no-version-set',
             'version' => '1.0.0.0',
             'reference' => null,
+=======
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => '28d7f1a4bc08a1ab13fd25b138fe57b44655a755',
+>>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

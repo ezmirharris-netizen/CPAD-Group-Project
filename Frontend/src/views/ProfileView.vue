@@ -55,8 +55,11 @@ onMounted(() => {
   if (authStore.user?.id) {
     reviewStore.fetchForTutor(authStore.user.id)
   }
+<<<<<<< HEAD
   // Pre-load skill categories for autocomplete / display
   skillStore.fetchAllSkills()
+=======
+>>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
 })
 
 const currentRole = computed(() => authStore.user?.role || 'tutee')
