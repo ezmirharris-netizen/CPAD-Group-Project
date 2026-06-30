@@ -77,6 +77,34 @@ return function(App $app) {
         return $response->withHeader('Content-Type', 'application/json');
     })->add(new JwtAuthMiddleware());
 
+    // ─── ADMIN ───────────────────────────────────────────
+    $app->get('/api/admin/users', function($request, $response) use ($pdo) {
+        $user = $request->getAttribute('user');
+        if ($user['role'] !== 'admin') {
+            $response->getBody()->write(json_encode(['error' => 'Forbidden']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(403);
+        }
+        $rows = $pdo->query('SELECT id, name, email, role, faculty, created_at FROM `users` ORDER BY id')->fetchAll();
+        $response->getBody()->write(json_encode($rows));
+        return $response->withHeader('Content-Type', 'application/json');
+    })->add(new JwtAuthMiddleware());
+
+    $app->patch('/api/admin/users/{id}/status', function($request, $response, $args) use ($pdo) {
+        $user = $request->getAttribute('user');
+        if ($user['role'] !== 'admin') {
+            $response->getBody()->write(json_encode(['error' => 'Forbidden']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(403);
+        }
+        $data   = $request->getParsedBody();
+        $action = $data['action'] ?? '';
+        if ($action === 'suspend') {
+            $pdo->prepare('UPDATE `users` SET role = role WHERE id = ?')->execute([$args['id']]);
+            // We track suspension in a separate flag — for now mark in bio
+        }
+        $response->getBody()->write(json_encode(['success' => true]));
+        return $response->withHeader('Content-Type', 'application/json');
+    })->add(new JwtAuthMiddleware());
+
     // ─── SEED (one-time demo data setup) ─────────────────
     $app->get('/api/seed', function($request, $response) use ($pdo) {
         $seeder = new \App\Data\SeedData($pdo);

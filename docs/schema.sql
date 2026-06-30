@@ -1,92 +1,255 @@
 -- ============================================================
---  SkillSwap — MySQL Database Schema
---  Run this script once to create all tables.
+-- SkillSwap Database Schema (HeidiSQL / MariaDB Compatible)
+-- This version drops the database first and uses automatic
+-- foreign key names to avoid duplicate constraint errors.
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS SkillSwap
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
+DROP DATABASE IF EXISTS `SkillSwap`;
 
-USE SkillSwap;
+CREATE DATABASE `SkillSwap`
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
 
--- ─── Users ──────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS User (
-    id            INT UNSIGNED     NOT NULL AUTO_INCREMENT,
-    name          VARCHAR(150)     NOT NULL,
-    email         VARCHAR(255)     NOT NULL UNIQUE,
-    password_hash VARCHAR(255)     NOT NULL,
-    faculty       VARCHAR(150)     NOT NULL DEFAULT '',
-    photo_url     VARCHAR(500)     NOT NULL DEFAULT '',
-    role          ENUM('admin','tutor','tutee') NOT NULL DEFAULT 'tutee',
-    bio           TEXT,
-    created_at    DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    INDEX idx_user_email (email),
-    INDEX idx_user_role  (role)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+USE `SkillSwap`;
 
--- ─── Skills ─────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS Skill (
-    id       INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-    name     VARCHAR(100)  NOT NULL,
-    category VARCHAR(100)  NOT NULL DEFAULT '',
-    PRIMARY KEY (id),
-    INDEX idx_skill_category (category)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- ============================================================
+-- USERS
+-- ============================================================
+CREATE TABLE `users` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(150) NOT NULL,
+    `email` VARCHAR(255) NOT NULL,
+    `password_hash` VARCHAR(255) NOT NULL,
+    `faculty` VARCHAR(150) NOT NULL DEFAULT '',
+    `photo_url` VARCHAR(500) NOT NULL DEFAULT '',
+    `role` ENUM('admin','tutor','tutee') NOT NULL DEFAULT 'tutee',
+    `bio` TEXT,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
--- ─── UserSkill (Tutor ↔ Skill mapping) ──────────────────────
-CREATE TABLE IF NOT EXISTS UserSkill (
-    id          INT UNSIGNED    NOT NULL AUTO_INCREMENT,
-    user_id     INT UNSIGNED    NOT NULL,
-    skill_id    INT UNSIGNED    NOT NULL,
-    hourly_rate DECIMAL(8,2)   NOT NULL DEFAULT 0.00,
-    level       ENUM('Beginner','Intermediate','Advanced','Expert') NOT NULL DEFAULT 'Intermediate',
-    PRIMARY KEY (id),
-    UNIQUE KEY uq_user_skill (user_id, skill_id),
-    CONSTRAINT fk_us_user  FOREIGN KEY (user_id)  REFERENCES User(id)  ON DELETE CASCADE,
-    CONSTRAINT fk_us_skill FOREIGN KEY (skill_id) REFERENCES Skill(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_email` (`email`),
+    KEY `idx_user_role` (`role`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ─── Bookings ───────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS Booking (
-    id            INT UNSIGNED    NOT NULL AUTO_INCREMENT,
-    learner_id    INT UNSIGNED    NOT NULL,
-    tutor_id      INT UNSIGNED    NOT NULL,
-    skill_id      INT UNSIGNED    NOT NULL,
-    schedule_time DATETIME        NOT NULL,
-    status        ENUM('pending','accepted','declined','completed') NOT NULL DEFAULT 'pending',
-    price         DECIMAL(10,2)  NOT NULL DEFAULT 0.00,
-    created_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    INDEX idx_booking_learner (learner_id),
-    INDEX idx_booking_tutor   (tutor_id),
-    INDEX idx_booking_status  (status),
-    CONSTRAINT fk_b_learner FOREIGN KEY (learner_id) REFERENCES User(id)  ON DELETE CASCADE,
-    CONSTRAINT fk_b_tutor   FOREIGN KEY (tutor_id)   REFERENCES User(id)  ON DELETE CASCADE,
-    CONSTRAINT fk_b_skill   FOREIGN KEY (skill_id)   REFERENCES Skill(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- ============================================================
+-- SKILLS
+-- ============================================================
+CREATE TABLE `skills` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(100) NOT NULL,
+    `category` VARCHAR(100) NOT NULL DEFAULT '',
 
--- ─── Reviews ────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS Review (
-    id         INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-    booking_id INT UNSIGNED  NOT NULL UNIQUE,
-    rating     TINYINT UNSIGNED NOT NULL CHECK (rating BETWEEN 1 AND 5),
-    comment    TEXT,
-    created_at DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    CONSTRAINT fk_r_booking FOREIGN KEY (booking_id) REFERENCES Booking(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    PRIMARY KEY (`id`),
+    KEY `idx_skill_category` (`category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ─── Messages ───────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS Message (
-    id          INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-    sender_id   INT UNSIGNED  NOT NULL,
-    receiver_id INT UNSIGNED  NOT NULL,
-    body        TEXT          NOT NULL,
-    sent_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    INDEX idx_msg_sender   (sender_id),
-    INDEX idx_msg_receiver (receiver_id),
-    CONSTRAINT fk_m_sender   FOREIGN KEY (sender_id)   REFERENCES User(id) ON DELETE CASCADE,
-    CONSTRAINT fk_m_receiver FOREIGN KEY (receiver_id) REFERENCES User(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- ============================================================
+-- USER SKILLS
+-- ============================================================
+CREATE TABLE `user_skills` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `user_id` INT UNSIGNED NOT NULL,
+    `skill_id` INT UNSIGNED NOT NULL,
+    `hourly_rate` DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+    `level` ENUM('Beginner','Intermediate','Advanced','Expert')
+        NOT NULL DEFAULT 'Intermediate',
+
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_user_skill` (`user_id`, `skill_id`),
+
+    FOREIGN KEY (`user_id`)
+        REFERENCES `users` (`id`)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (`skill_id`)
+        REFERENCES `skills` (`id`)
+        ON DELETE CASCADE
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- BOOKINGS
+-- ============================================================
+CREATE TABLE `bookings` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `learner_id` INT UNSIGNED NOT NULL,
+    `tutor_id` INT UNSIGNED NOT NULL,
+    `skill_id` INT UNSIGNED NOT NULL,
+    `schedule_time` DATETIME NOT NULL,
+    `status` ENUM('pending','accepted','declined','completed')
+        NOT NULL DEFAULT 'pending',
+    `price` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (`id`),
+
+    KEY `idx_booking_learner` (`learner_id`),
+    KEY `idx_booking_tutor` (`tutor_id`),
+    KEY `idx_booking_status` (`status`),
+
+    FOREIGN KEY (`learner_id`)
+        REFERENCES `users` (`id`)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (`tutor_id`)
+        REFERENCES `users` (`id`)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (`skill_id`)
+        REFERENCES `skills` (`id`)
+        ON DELETE CASCADE
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- REVIEWS
+-- ============================================================
+CREATE TABLE `reviews` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `booking_id` INT UNSIGNED NOT NULL,
+    `rating` TINYINT UNSIGNED NOT NULL,
+    `comment` TEXT,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_booking_review` (`booking_id`),
+
+    FOREIGN KEY (`booking_id`)
+        REFERENCES `bookings` (`id`)
+        ON DELETE CASCADE
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- MESSAGES
+-- ============================================================
+CREATE TABLE `messages` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `sender_id` INT UNSIGNED NOT NULL,
+    `receiver_id` INT UNSIGNED NOT NULL,
+    `body` TEXT NOT NULL,
+    `sent_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (`id`),
+
+    KEY `idx_msg_sender` (`sender_id`),
+    KEY `idx_msg_receiver` (`receiver_id`),
+
+    FOREIGN KEY (`sender_id`)
+        REFERENCES `users` (`id`)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (`receiver_id`)
+        REFERENCES `users` (`id`)
+        ON DELETE CASCADE
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- SAMPLE DATA
+-- ============================================================
+
+INSERT INTO `users`
+(`name`, `email`, `password_hash`, `faculty`,
+ `photo_url`, `role`, `bio`)
+VALUES
+('Aisha Rahman','aisha.rahman@example.edu',
+'$2y$10$placeholderhash000000000000000000000000000000000001',
+'Faculty of Computer Science',
+'https://example.com/photos/aisha.jpg',
+'admin',
+'Platform administrator and CS lecturer.'),
+
+('Daniel Lim','daniel.lim@example.edu',
+'$2y$10$placeholderhash000000000000000000000000000000000002',
+'Faculty of Computer Science',
+'https://example.com/photos/daniel.jpg',
+'tutor',
+'Final-year CS student specializing in web development.'),
+
+('Priya Nair','priya.nair@example.edu',
+'$2y$10$placeholderhash000000000000000000000000000000000003',
+'Faculty of Mathematics',
+'https://example.com/photos/priya.jpg',
+'tutor',
+'Math tutor with a passion for calculus and statistics.'),
+
+('Wei Cheng','wei.cheng@example.edu',
+'$2y$10$placeholderhash000000000000000000000000000000000004',
+'Faculty of Languages',
+'https://example.com/photos/wei.jpg',
+'tutor',
+'Native Mandarin speaker offering conversational practice.'),
+
+('Sofia Hernandez','sofia.hernandez@example.edu',
+'$2y$10$placeholderhash000000000000000000000000000000000005',
+'Faculty of Fine Arts',
+'https://example.com/photos/sofia.jpg',
+'tutor',
+'Guitar and music theory tutor, 5 years teaching experience.'),
+
+('Marcus Tan','marcus.tan@example.edu',
+'$2y$10$placeholderhash000000000000000000000000000000000006',
+'Faculty of Computer Science',
+'',
+'tutee',
+'Learning to code, interested in frontend development.'),
+
+('Nur Aina','nur.aina@example.edu',
+'$2y$10$placeholderhash000000000000000000000000000000000007',
+'Faculty of Business',
+'',
+'tutee',
+'Looking to improve my public speaking and Spanish.'),
+
+('James O''Brien','james.obrien@example.edu',
+'$2y$10$placeholderhash000000000000000000000000000000000008',
+'Faculty of Engineering',
+'',
+'tutee',
+'Want to pick up guitar as a hobby.');
+
+INSERT INTO `skills` (`name`, `category`) VALUES
+('Web Development','Technology'),
+('Python Programming','Technology'),
+('Calculus','Mathematics'),
+('Statistics','Mathematics'),
+('Mandarin Conversation','Language'),
+('Spanish Conversation','Language'),
+('Guitar Lessons','Music'),
+('Music Theory','Music');
+
+INSERT INTO `user_skills`
+(`user_id`,`skill_id`,`hourly_rate`,`level`)
+VALUES
+(2,1,25.00,'Advanced'),
+(2,2,20.00,'Intermediate'),
+(3,3,18.00,'Expert'),
+(3,4,18.00,'Advanced'),
+(4,5,15.00,'Expert'),
+(5,7,22.00,'Advanced'),
+(5,8,20.00,'Intermediate');
+
+INSERT INTO `bookings`
+(`learner_id`,`tutor_id`,`skill_id`,
+`schedule_time`,`status`,`price`)
+VALUES
+(6,2,1,'2026-07-05 14:00:00','accepted',25.00),
+(7,4,5,'2026-07-06 10:00:00','completed',15.00),
+(8,5,7,'2026-07-08 16:30:00','pending',22.00),
+(6,3,3,'2026-06-20 09:00:00','completed',18.00),
+(7,3,4,'2026-06-15 11:00:00','declined',18.00);
+
+INSERT INTO `reviews`
+(`booking_id`,`rating`,`comment`)
+VALUES
+(2,5,'Wei was patient and made conversational practice fun and easy to follow.'),
+(4,4,'Priya explained calculus concepts clearly, would book again.');
+
+INSERT INTO `messages`
+(`sender_id`,`receiver_id`,`body`,`sent_at`)
+VALUES
+(6,2,'Hi Daniel, is the 2pm slot on Friday still available for the web dev session?','2026-07-01 09:15:00'),
+(2,6,'Yes, that works for me. See you then!','2026-07-01 09:20:00'),
+(7,4,'Thank you for the great Mandarin session yesterday!','2026-07-07 08:00:00'),
+(8,5,'Hi Sofia, looking forward to my first guitar lesson next week.','2026-07-02 19:45:00');

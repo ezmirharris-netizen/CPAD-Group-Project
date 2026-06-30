@@ -11,9 +11,8 @@ class BookingModels
     public function create(array $data): int
     {
         $stmt = $this->pdo->prepare(
-            'INSERT INTO "Booking" (learner_id, tutor_id, skill_id, schedule_time, status, price)
-             VALUES (:learner_id, :tutor_id, :skill_id, :schedule_time, :status, :price)
-             RETURNING id'
+            'INSERT INTO `bookings` (learner_id, tutor_id, skill_id, schedule_time, status, price)
+             VALUES (:learner_id, :tutor_id, :skill_id, :schedule_time, :status, :price)'
         );
         $stmt->execute([
             ':learner_id'    => $data['learner_id'],
@@ -23,8 +22,7 @@ class BookingModels
             ':status'        => $data['status'] ?? 'pending',
             ':price'         => $data['price']   ?? 0,
         ]);
-        $row = $stmt->fetch();
-        return (int) $row['id'];
+        return (int) $this->pdo->lastInsertId();
     }
 
     public function findByUserId(int $userId, string $role = 'learner'): array
@@ -36,9 +34,9 @@ class BookingModels
                     u.name  AS counterpart_name,
                     u.email AS counterpart_email,
                     s.name  AS skill_name
-                FROM "Booking" b
-                JOIN "User"  u ON u.id = b.learner_id
-                JOIN "Skill" s ON s.id = b.skill_id
+                FROM `bookings` b
+                JOIN `users`  u ON u.id = b.learner_id
+                JOIN `skills` s ON s.id = b.skill_id
                 WHERE b.tutor_id = ?
                 ORDER BY b.schedule_time DESC
             ';
@@ -50,10 +48,10 @@ class BookingModels
                     l.name  AS learner_name,
                     s.name  AS skill_name,
                     t.name  AS counterpart_name
-                FROM "Booking" b
-                JOIN "User"  t ON t.id = b.tutor_id
-                JOIN "User"  l ON l.id = b.learner_id
-                JOIN "Skill" s ON s.id = b.skill_id
+                FROM `bookings` b
+                JOIN `users`  t ON t.id = b.tutor_id
+                JOIN `users`  l ON l.id = b.learner_id
+                JOIN `skills` s ON s.id = b.skill_id
                 ORDER BY b.schedule_time DESC
             ';
             $stmt = $this->pdo->prepare($sql);
@@ -67,9 +65,9 @@ class BookingModels
                     u.email AS counterpart_email,
                     u.faculty,
                     s.name  AS skill_name
-                FROM "Booking" b
-                JOIN "User"  u ON u.id = b.tutor_id
-                JOIN "Skill" s ON s.id = b.skill_id
+                FROM `bookings` b
+                JOIN `users`  u ON u.id = b.tutor_id
+                JOIN `skills` s ON s.id = b.skill_id
                 WHERE b.learner_id = ?
                 ORDER BY b.schedule_time DESC
             ';
@@ -82,13 +80,13 @@ class BookingModels
 
     public function updateStatus(int $id, string $status): bool
     {
-        $stmt = $this->pdo->prepare('UPDATE "Booking" SET status = ? WHERE id = ?');
+        $stmt = $this->pdo->prepare('UPDATE `bookings` SET status = ? WHERE id = ?');
         return $stmt->execute([$status, $id]);
     }
 
     public function delete(int $id): bool
     {
-        $stmt = $this->pdo->prepare('DELETE FROM "Booking" WHERE id = ?');
+        $stmt = $this->pdo->prepare('DELETE FROM `bookings` WHERE id = ?');
         return $stmt->execute([$id]);
     }
 
@@ -96,8 +94,8 @@ class BookingModels
     {
         $stmt = $this->pdo->prepare(
             'SELECT b.*, s.name AS skill_name
-               FROM "Booking" b
-               JOIN "Skill" s ON s.id = b.skill_id
+               FROM `bookings` b
+               JOIN `skills` s ON s.id = b.skill_id
               WHERE b.id = ? LIMIT 1'
         );
         $stmt->execute([$id]);
