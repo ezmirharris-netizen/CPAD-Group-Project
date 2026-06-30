@@ -98,6 +98,28 @@ async function completeSession(booking) {
 }
 
 async function declineBooking(id) { await bookingStore.updateStatus(id, 'declined') }
+
+// ── Recorded Session Uploads (links only) — tutors manage, tutees view-only ──
+const linkDrafts = ref({}) // bookingId -> draft text while editing
+
+function startEditLink(booking) {
+  if (!authStore.isTutor) return
+  linkDrafts.value[booking.id] = bookingStore.recordingLinks[booking.id] || ''
+}
+function cancelEditLink(booking) {
+  delete linkDrafts.value[booking.id]
+}
+function saveLink(booking) {
+  if (!authStore.isTutor) return
+  const url = (linkDrafts.value[booking.id] || '').trim()
+  if (!url) return
+  bookingStore.setRecordingLink(booking.id, url)
+  delete linkDrafts.value[booking.id]
+}
+function removeLink(booking) {
+  if (!authStore.isTutor) return
+  bookingStore.removeRecordingLink(booking.id)
+}
 </script>
 
 <template>
@@ -239,6 +261,90 @@ async function declineBooking(id) { await bookingStore.updateStatus(id, 'decline
     <p>Your bookings will appear here.</p>
   </div>
 
+  <!-- ── RECORDED SESSION UPLOADS (links only) ───────────────────────── -->
+  <div class="card" style="margin-top:25px">
+    <div class="section-header">
+      <div>
+        <h2>🎥 Recorded Session Uploads</h2>
+        <p class="subtitle">Recording links from completed sessions, saved here for repeat reference</p>
+      </div>
+      <span v-if="completedBookings.length" class="badge badge-success">
+        {{ completedBookings.length }} completed
+      </span>
+    </div>
+
+    <div v-if="!completedBookings.length" class="empty-state" style="padding:30px">
+      <i class="fa-solid fa-video"></i>
+      <p>No completed sessions yet. Recording links can be added once a session is marked complete.</p>
+    </div>
+
+    <div class="recording-list">
+      <div
+        v-for="booking in completedBookings"
+        :key="'rec-' + booking.id"
+        class="recording-row"
+      >
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <strong>{{ booking.subject }}</strong>
+            <span class="badge badge-success">completed</span>
+          </div>
+          <p class="muted-sm">{{ authStore.isTutor ? '👨‍🎓' : '👨‍🏫' }} {{ booking.tutor }} · 📅 {{ booking.date }}</p>
+
+          <!-- Saved link (view mode) -->
+          <div v-if="bookingStore.recordingLinks[booking.id] && linkDrafts[booking.id] === undefined" style="margin-top:8px">
+            <a
+              :href="bookingStore.recordingLinks[booking.id]"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="recording-link"
+            >
+              <i class="fa-solid fa-link"></i> {{ bookingStore.recordingLinks[booking.id] }}
+            </a>
+          </div>
+          <p v-else-if="linkDrafts[booking.id] === undefined" class="muted-sm" style="margin-top:8px">
+            No recording link added yet.
+          </p>
+
+          <!-- Edit mode -->
+          <div v-if="authStore.isTutor && linkDrafts[booking.id] !== undefined" style="margin-top:8px">
+            <input
+              v-model="linkDrafts[booking.id]"
+              type="url"
+              placeholder="Paste recording link (e.g. Google Drive, YouTube, Zoom)..."
+              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem"
+            >
+          </div>
+        </div>
+
+        <!-- ── TUTOR: can add/edit/remove the recording link ───────────── -->
+        <div v-if="authStore.isTutor" class="action-btns">
+          <template v-if="linkDrafts[booking.id] !== undefined">
+            <button style="padding:8px 16px;font-size:.85rem" @click="saveLink(booking)">Save</button>
+            <button class="btn-outline" style="padding:8px 16px;font-size:.85rem" @click="cancelEditLink(booking)">Cancel</button>
+          </template>
+          <template v-else>
+            <button
+              class="btn-outline"
+              style="padding:8px 16px;font-size:.85rem"
+              @click="startEditLink(booking)"
+            >
+              {{ bookingStore.recordingLinks[booking.id] ? '✎ Edit Link' : '+ Add Link' }}
+            </button>
+            <button
+              v-if="bookingStore.recordingLinks[booking.id]"
+              class="btn-outline"
+              style="padding:8px 16px;font-size:.85rem;color:var(--danger);border-color:var(--danger)"
+              @click="removeLink(booking)"
+            >
+              ✕ Remove
+            </button>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ══════════════════════  RATING MODAL  ══════════════════════════ -->
@@ -322,4 +428,41 @@ async function declineBooking(id) { await bookingStore.updateStatus(id, 'decline
   color: #f59e0b;
   transform: scale(1.15);
 }
+
+/* ── Recorded Session Uploads ── */
+.section-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 20px; gap: 12px;
+}
+.recording-list {
+  display: flex; flex-direction: column; gap: 14px;
+}
+.recording-row {
+  display: flex; align-items: flex-start; gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card-bg, #fff);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.recording-row:hover {
+  border-color: var(--primary-light, var(--primary));
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+.action-btns {
+  display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+}
+.muted-sm { color: var(--text-muted); font-size: .83rem; margin-top: 2px; }
+.recording-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--primary); font-size: .85rem; word-break: break-all;
+  text-decoration: none;
+  padding: 6px 10px;
+  background: var(--bg-main);
+  border-radius: 8px;
+}
+.recording-link:hover { text-decoration: underline; }
 </style>

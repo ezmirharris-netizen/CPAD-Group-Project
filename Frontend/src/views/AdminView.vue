@@ -6,7 +6,6 @@ import { useBookingStore } from '../stores/booking'
 import { useAdminStore }   from '../stores/admin'
 import UserManagement    from '../components/admin/UserManagement.vue'
 import ContentModeration from '../components/admin/ContentModeration.vue'
-import DisputeResolution from '../components/admin/DisputeResolution.vue'
 import AuditLog          from '../components/admin/AuditLog.vue'
 
 const tutorStore   = useTutorStore()
@@ -18,11 +17,8 @@ onMounted(() => {
   tutorStore.reloadFromStorage()
   bookingStore.fetchBookings('admin')
   adminStore.fetchUsers()
-<<<<<<< HEAD
   adminStore.fetchReports()
   adminStore.fetchLogs()
-=======
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
 })
 
 const totalUsers    = computed(() => adminStore.users.length + tutorStore.pendingTutors.length)
@@ -143,8 +139,6 @@ function rejectSession(id)  { tutorStore.rejectSession(id) }
   <UserManagement />
   <br>
   <ContentModeration />
-  <br>
-  <DisputeResolution />
   <br>
   <AuditLog />
 

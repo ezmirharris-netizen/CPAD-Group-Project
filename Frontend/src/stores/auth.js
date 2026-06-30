@@ -60,12 +60,8 @@ export const useAuthStore = defineStore('auth', {
     token:   safeGetToken(),
     loading: false,
     error:   null,
-<<<<<<< HEAD
     approvalNotification: localStorage.getItem('ss_approval_notif') || null,
     customAccounts: loadCustomAccounts()
-=======
-    approvalNotification: localStorage.getItem('ss_approval_notif') || null
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
   }),
 
   getters: {
@@ -144,7 +140,6 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-<<<<<<< HEAD
     addCustomAccount(acc) {
       const exists = this.customAccounts.some(a => a.email === acc.email)
       if (exists) return
@@ -152,8 +147,6 @@ export const useAuthStore = defineStore('auth', {
       saveCustomAccounts(this.customAccounts)
     },
 
-=======
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
     notifyApproval(tutorName) {
       const msg = `✅ Your tutor account has been approved! You can now appear in Discover.`
       this.approvalNotification = msg
@@ -165,7 +158,6 @@ export const useAuthStore = defineStore('auth', {
       try { localStorage.removeItem('ss_approval_notif') } catch(e) {}
     },
 
-<<<<<<< HEAD
     async applyAsTutor(profileData) {
       // Persist the role change to the backend so it survives subsequent
       // profile saves (previously this was local-only and got overwritten
@@ -175,9 +167,6 @@ export const useAuthStore = defineStore('auth', {
       } catch (err) {
         // Fall back to local-only update if the backend call fails
       }
-=======
-    applyAsTutor(profileData) {
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
       const updated = {
         ...this.user,
         role: 'tutor',
