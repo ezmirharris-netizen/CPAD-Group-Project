@@ -1,11 +1,29 @@
 import { defineStore } from 'pinia'
 
+// Wallet data is kept per-account (keyed by user id) so that switching
+// accounts — or a tutee becoming a tutor — never bleeds one person's
+// balance into another's, and never appears to "reset" just because the
+// account's role changed.
+function currentUserId() {
+  try {
+    const raw = localStorage.getItem('user')
+    if (!raw || raw === 'undefined' || raw === 'null') return 'guest'
+    return JSON.parse(raw)?.id ?? 'guest'
+  } catch (e) {
+    return 'guest'
+  }
+}
+
+function storageKey() {
+  return `ss_wallet_${currentUserId()}`
+}
+
 function save(data) {
-  try { localStorage.setItem('ss_wallet', JSON.stringify(data)) } catch(e) {}
+  try { localStorage.setItem(storageKey(), JSON.stringify(data)) } catch (e) {}
 }
 function load(key, fallback) {
   try {
-    const s = localStorage.getItem('ss_wallet')
+    const s = localStorage.getItem(storageKey())
     if (!s || s === 'undefined') return fallback
     return JSON.parse(s)?.[key] ?? fallback
   } catch { return fallback }
@@ -16,15 +34,19 @@ const DEFAULT_TXS = [
   { id: 2, title: 'Vue.js Tutoring Session', amount: '-RM45', type: 'expense', date: '2026-06-10' }
 ]
 
-export const useWalletStore = defineStore('wallet', {
-  state: () => ({
+function freshState() {
+  return {
     balance:            load('balance', 240),
     transactions:       load('transactions', DEFAULT_TXS),
     pendingPayments:    load('pendingPayments', []),
     tutorTotalEarnings: load('tutorTotalEarnings', 0),
     tutorBalance:       load('tutorBalance', 0),
     tutorTransactions:  load('tutorTransactions', [])
-  }),
+  }
+}
+
+export const useWalletStore = defineStore('wallet', {
+  state: freshState,
 
   getters: {
     totalPending: (state) =>
@@ -42,6 +64,30 @@ export const useWalletStore = defineStore('wallet', {
         tutorBalance: this.tutorBalance,
         tutorTransactions: this.tutorTransactions
       })
+    },
+
+    // Re-read wallet data for whichever account is currently logged in.
+    // Call this right after login/register/logout so each account always
+    // shows its own balance/history instead of whatever was last held in
+    // memory for a previous account.
+    reload() {
+      Object.assign(this, freshState())
+    },
+
+    // One-time RM50 sign-up bonus for a brand-new account. Only call this
+    // immediately after a successful registration — calling it again later
+    // (e.g. on every login) would re-grant the bonus.
+    grantSignupBonus(amount = 50) {
+      const today = new Date().toISOString().slice(0, 10)
+      this.balance = amount
+      this.transactions = [
+        { id: Date.now(), title: 'Welcome Bonus', amount: `+RM${amount}`, type: 'income', date: today }
+      ]
+      this.pendingPayments    = []
+      this.tutorTotalEarnings = 0
+      this.tutorBalance       = 0
+      this.tutorTransactions  = []
+      this._persist()
     },
 
     addPendingPayment(booking) {

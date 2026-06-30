@@ -21,6 +21,8 @@ CREATE TABLE `users` (
     `email` VARCHAR(255) NOT NULL,
     `password_hash` VARCHAR(255) NOT NULL,
     `faculty` VARCHAR(150) NOT NULL DEFAULT '',
+    `course` VARCHAR(150) NOT NULL DEFAULT '',
+    `year` TINYINT UNSIGNED NULL DEFAULT NULL,
     `photo_url` VARCHAR(500) NOT NULL DEFAULT '',
     `role` ENUM('admin','tutor','tutee') NOT NULL DEFAULT 'tutee',
     `bio` TEXT,
@@ -146,7 +148,6 @@ CREATE TABLE `messages` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
-<<<<<<< HEAD
 -- CONTENT MODERATION (reported content: messages, reviews, profiles, etc.)
 -- ============================================================
 CREATE TABLE `content_reports` (
@@ -198,8 +199,6 @@ CREATE TABLE `audit_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
-=======
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
 -- SAMPLE DATA
 -- ============================================================
 
@@ -306,7 +305,6 @@ VALUES
 (6,2,'Hi Daniel, is the 2pm slot on Friday still available for the web dev session?','2026-07-01 09:15:00'),
 (2,6,'Yes, that works for me. See you then!','2026-07-01 09:20:00'),
 (7,4,'Thank you for the great Mandarin session yesterday!','2026-07-07 08:00:00'),
-<<<<<<< HEAD
 (8,5,'Hi Sofia, looking forward to my first guitar lesson next week.','2026-07-02 19:45:00');
 
 INSERT INTO `content_reports`
@@ -322,6 +320,3 @@ VALUES
 (1,'User Suspended','user',6,'Suspended after repeated content report.'),
 (1,'Report Resolved','content_report',3,'Reviewed bio claim, tutor provided certificate, marked resolved.'),
 (1,'Tutor Approved','user',4,'Approved Wei Cheng as a tutor after document check.');
-=======
-(8,5,'Hi Sofia, looking forward to my first guitar lesson next week.','2026-07-02 19:45:00');
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438

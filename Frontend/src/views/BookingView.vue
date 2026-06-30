@@ -11,10 +11,11 @@ const reviewStore  = useReviewStore()
 onMounted(() => {
   if (authStore.isAdmin) {
     bookingStore.fetchBookings('admin')
-  } else if (authStore.isTutor) {
-    bookingStore.fetchBookings('tutor')
   } else {
-    bookingStore.fetchBookings('learner')
+    // Fetch both learner-side and tutor-side bookings and merge them, so
+    // switching from tutee -> tutor never hides bookings made while you
+    // were still a tutee.
+    bookingStore.fetchAllMyBookings()
   }
 })
 
@@ -33,6 +34,14 @@ const userRole = computed(() => {
     return 'tutee'
   }
 })
+
+// Whether the CURRENT user is the tutor on THIS specific booking. Needed
+// because a single account can now have both learner-side and tutor-side
+// bookings merged together (see fetchAllMyBookings), so we can no longer
+// assume every booking matches the account's overall role.
+function isMyTutorBooking(booking) {
+  return Number(booking.tutor_id) === Number(authStore.user?.id)
+}
 
 // ── Rating Modal ─────────────────────────────────────────────────────────────
 const showRating    = ref(false)
@@ -61,7 +70,7 @@ async function submitRating() {
   // The database only stores tutee → tutor reviews (the `reviews` table has no
   // "reviewee" column, it's tied to a booking and joined to bookings.tutor_id).
   // A tutor rating a tutee isn't supported by the schema yet.
-  if (authStore.isTutor) {
+  if (isMyTutorBooking(ratingBooking.value)) {
     ratingError.value = 'Rating learners isn\'t supported yet.'
     return
   }
@@ -139,7 +148,7 @@ async function declineBooking(id) { await bookingStore.updateStatus(id, 'decline
     >
       <div class="booking-info">
         <h3>{{ booking.subject }}</h3>
-        <p>{{ authStore.isTutor ? '👨‍🎓' : '👨‍🏫' }} {{ booking.tutor }}</p>
+        <p>{{ isMyTutorBooking(booking) ? '👨‍🎓' : '👨‍🏫' }} {{ booking.tutor }}</p>
         <p>📅 {{ booking.date }}</p>
         <p>💰 RM {{ booking.price }}</p>
       </div>
@@ -157,8 +166,14 @@ async function declineBooking(id) { await bookingStore.updateStatus(id, 'decline
           {{ booking.status }}
         </span>
 
-        <!-- ── TUTOR ───────────────────────────────────────────────── -->
-        <template v-if="authStore.isTutor">
+        <!-- ── TUTOR (current user is the tutor on this booking) ──────── -->
+        <template v-if="authStore.isAdmin">
+          <button v-if="booking.status === 'pending'" @click="acceptBooking(booking.id)">Accept</button>
+          <button v-if="booking.status === 'pending'" class="btn-outline" @click="declineBooking(booking.id)">Decline</button>
+          <button v-if="booking.status === 'accepted'" @click="completeSession(booking)">Complete</button>
+        </template>
+
+        <template v-else-if="isMyTutorBooking(booking)">
           <!-- Pending: accept or decline -->
           <button v-if="booking.status === 'pending'" @click="acceptBooking(booking.id)">Accept</button>
           <button v-if="booking.status === 'pending'" class="btn-outline" @click="declineBooking(booking.id)">Decline</button>
@@ -180,14 +195,7 @@ async function declineBooking(id) { await bookingStore.updateStatus(id, 'decline
           </button>
         </template>
 
-        <!-- ── ADMIN ──────────────────────────────────────────────── -->
-        <template v-else-if="authStore.isAdmin">
-          <button v-if="booking.status === 'pending'" @click="acceptBooking(booking.id)">Accept</button>
-          <button v-if="booking.status === 'pending'" class="btn-outline" @click="declineBooking(booking.id)">Decline</button>
-          <button v-if="booking.status === 'accepted'" @click="completeSession(booking)">Complete</button>
-        </template>
-
-        <!-- ── TUTEE ───────────────────────────────────────────────── -->
+        <!-- ── TUTEE (current user is the learner on this booking) ────── -->
         <template v-else>
           <!-- Pending: waiting for tutor to accept -->
           <span
@@ -246,7 +254,7 @@ async function declineBooking(id) { await bookingStore.updateStatus(id, 'decline
   <div class="modal-card">
     <h2>⭐ Rate Your Session</h2>
     <p style="color:var(--text-muted);margin-bottom:20px">
-      {{ authStore.isTutor ? 'How was your tutee?' : 'How was your tutor?' }}
+      {{ isMyTutorBooking(ratingBooking) ? 'How was your tutee?' : 'How was your tutor?' }}
       — <strong>{{ ratingBooking?.subject }}</strong>
     </p>
 

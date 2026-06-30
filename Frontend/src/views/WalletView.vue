@@ -11,16 +11,22 @@ const authStore    = useAuthStore()
 onMounted(() => {
   if (authStore.isAdmin) {
     bookingStore.fetchBookings('admin')
-  } else if (authStore.isTutor) {
-    bookingStore.fetchBookings('tutor')
   } else {
-    bookingStore.fetchBookings('learner')
+    // Merge learner-side and tutor-side bookings so becoming a tutor
+    // doesn't hide sessions booked while still a tutee.
+    bookingStore.fetchAllMyBookings()
   }
 })
 
+// Whether the current user is the tutor on a given booking (the bookings
+// list now contains both tutor-side and learner-side sessions merged).
+function isMyTutorBooking(booking) {
+  return Number(booking.tutor_id) === Number(authStore.user?.id)
+}
+
 // ── TUTOR computed ────────────────────────────────────────────────────────────
 const tutorCompletedBookings = computed(() =>
-  bookingStore.bookings.filter(b => b.status === 'completed')
+  bookingStore.bookings.filter(b => b.status === 'completed' && isMyTutorBooking(b))
 )
 
 const platformFee = computed(() =>
@@ -29,7 +35,7 @@ const platformFee = computed(() =>
 
 // Bookings accepted by tutor but NOT yet paid by tutee
 const tutorAwaitingPayment = computed(() =>
-  bookingStore.bookings.filter(b => b.status === 'accepted')
+  bookingStore.bookings.filter(b => b.status === 'accepted' && isMyTutorBooking(b))
 )
 
 const tutorAwaitingAmount = computed(() =>
@@ -70,10 +76,14 @@ const adminPendingAmount = computed(() =>
     <span class="badge badge-primary" style="margin-top:6px">{{ authStore.user?.role }}</span>
   </div>
 
-  <!-- ══════════════════════  TUTEE WALLET  ══════════════════════════ -->
-  <template v-if="!authStore.isTutor && !authStore.isAdmin">
+  <!-- ══════════════════════  SPENDING WALLET  ══════════════════════════
+       Shown for every non-admin account, tutor or tutee, so becoming a
+       tutor never hides the balance/history you had as a tutee. -->
+  <template v-if="!authStore.isAdmin">
 
-    <div class="wallet-layout">
+    <h2 v-if="authStore.isTutor" style="margin-bottom:14px">💳 Spending Wallet</h2>
+
+    <div class="wallet-layout" :style="authStore.isTutor ? 'margin-bottom:40px' : ''">
 
       <!-- Balance Card — bound to walletStore.balance (same source as Dashboard) -->
       <div class="card wallet-card">
@@ -155,7 +165,9 @@ const adminPendingAmount = computed(() =>
   </template>
 
   <!-- ══════════════════════  TUTOR WALLET  ══════════════════════════ -->
-  <template v-else-if="authStore.isTutor">
+  <template v-if="authStore.isTutor">
+
+    <h2 style="margin-bottom:14px">📈 Teaching Earnings</h2>
 
     <div class="wallet-layout">
 
@@ -241,7 +253,7 @@ const adminPendingAmount = computed(() =>
   </template>
 
   <!-- ══════════════════════  ADMIN WALLET  ══════════════════════════ -->
-  <template v-else>
+  <template v-if="authStore.isAdmin">
 
     <div class="wallet-layout">
 

@@ -40,6 +40,16 @@ return function(App $app) {
 
     $app->put('/api/profile', [$authController, 'updateProfile'])->add(new JwtAuthMiddleware());
 
+    // Skills currently on the authenticated user's own profile (used to
+    // repopulate the Profile page after a refresh/re-login — previously
+    // nothing read this back, so added skills only appeared until the
+    // next page load even though they were saved to user_skills).
+    $app->get('/api/profile/skills', function($request, $response) use ($skillModel) {
+        $user = $request->getAttribute('user');
+        $response->getBody()->write(json_encode($skillModel->getUserSkills((int)$user['id'])));
+        return $response->withHeader('Content-Type', 'application/json');
+    })->add(new JwtAuthMiddleware());
+
     // ─── SKILLS ──────────────────────────────────────────
     // List all skills (for dropdowns / discovery)
     $app->get('/api/skills', function($request, $response) use ($skillModel) {
@@ -148,7 +158,6 @@ return function(App $app) {
             $pdo->prepare('UPDATE `users` SET role = role WHERE id = ?')->execute([$args['id']]);
             // We track suspension in a separate flag — for now mark in bio
         }
-<<<<<<< HEAD
         $pdo->prepare('INSERT INTO `audit_log` (admin_id, action, target_type, target_id, details) VALUES (?,?,?,?,?)')
             ->execute([
                 (int)$user['id'],
@@ -157,13 +166,10 @@ return function(App $app) {
                 (int)$args['id'],
                 'Status changed via admin panel.'
             ]);
-=======
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
         $response->getBody()->write(json_encode(['success' => true]));
         return $response->withHeader('Content-Type', 'application/json');
     })->add(new JwtAuthMiddleware());
 
-<<<<<<< HEAD
     // ─── ADMIN: CONTENT MODERATION ────────────────────────
     $app->get('/api/admin/reports', function($request, $response) use ($pdo) {
         $user = $request->getAttribute('user');
@@ -240,8 +246,6 @@ return function(App $app) {
     })->add(new JwtAuthMiddleware());
 
 
-=======
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
     // ─── SEED (one-time demo data setup) ─────────────────
     $app->get('/api/seed', function($request, $response) use ($pdo) {
         $seeder = new \App\Data\SeedData($pdo);

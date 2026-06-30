@@ -30,13 +30,15 @@ class UserModels
         string $passwordHash,
         string $faculty = '',
         string $role    = 'tutee',
-        string $bio     = ''
+        string $bio     = '',
+        string $course  = '',
+        ?int   $year    = null
     ): int {
         $stmt = $this->pdo->prepare(
-            'INSERT INTO `users` (name, email, password_hash, faculty, photo_url, role, bio)
-             VALUES (?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO `users` (name, email, password_hash, faculty, course, year, photo_url, role, bio)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
-        $stmt->execute([$name, $email, $passwordHash, $faculty, '', $role, $bio]);
+        $stmt->execute([$name, $email, $passwordHash, $faculty, $course, $year, '', $role, $bio]);
         return (int) $this->pdo->lastInsertId();
     }
 
@@ -44,14 +46,14 @@ class UserModels
     {
         if (empty($fields)) return false;
 
-        $allowed = ['name', 'faculty', 'bio', 'photo_url', 'role'];
+        $allowed = ['name', 'faculty', 'course', 'year', 'bio', 'photo_url', 'role'];
         $sets    = [];
         $values  = [];
 
         foreach ($allowed as $col) {
             if (array_key_exists($col, $fields)) {
                 $sets[]   = "$col = ?";
-                $values[] = $fields[$col];
+                $values[] = $fields[$col] === '' && $col === 'year' ? null : $fields[$col];
             }
         }
 

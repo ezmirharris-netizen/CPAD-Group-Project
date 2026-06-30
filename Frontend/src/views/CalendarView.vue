@@ -8,13 +8,20 @@ const authStore    = useAuthStore()
 
 const todayObj = new Date()
 
+// Whether the current user is the tutor on a given booking (a single
+// account's bookings list can now contain both tutor-side and learner-side
+// sessions merged together).
+function isMyTutorBooking(booking) {
+  return Number(booking.tutor_id) === Number(authStore.user?.id)
+}
+
 onMounted(() => {
   if (authStore.isAdmin) {
     bookingStore.fetchBookings('admin')
-  } else if (authStore.isTutor) {
-    bookingStore.fetchBookings('tutor')
   } else {
-    bookingStore.fetchBookings('learner')
+    // Merge learner-side and tutor-side bookings so becoming a tutor
+    // doesn't hide sessions booked while still a tutee.
+    bookingStore.fetchAllMyBookings()
   }
   selectedDay.value = todayObj.getDate()
 })
@@ -163,7 +170,7 @@ const calendarTitle = computed(() => {
             class="session-detail-card"
           >
             <h4>📘 {{ session.subject }}</h4>
-            <p>{{ authStore.isTutor ? 'Student' : 'Tutor' }}: <strong>{{ session.tutor }}</strong></p>
+            <p>{{ isMyTutorBooking(session) ? 'Student' : 'Tutor' }}: <strong>{{ session.tutor }}</strong></p>
             <p>Price: <strong>RM {{ session.price }}</strong></p>
             <span
               class="badge"

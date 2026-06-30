@@ -44,7 +44,6 @@ export const useAdminStore = defineStore('admin', {
       }
     },
 
-<<<<<<< HEAD
     async fetchReports() {
       try {
         const res = await api.get('/admin/reports')
@@ -63,8 +62,6 @@ export const useAdminStore = defineStore('admin', {
       }
     },
 
-=======
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
     suspendUser(id) {
       const user = this.users.find(u => u.id === id)
       if (user) {
@@ -75,11 +72,7 @@ export const useAdminStore = defineStore('admin', {
           admin:  'Admin',
           date:   new Date().toISOString().slice(0, 10)
         })
-<<<<<<< HEAD
         api.patch(`/admin/users/${id}/status`, { action: 'suspend' }).catch(() => {})
-=======
-        try { api.patch(`/admin/users/${id}/status`, { action: 'suspend' }) } catch {}
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
       }
     },
 
@@ -93,11 +86,7 @@ export const useAdminStore = defineStore('admin', {
           admin:  'Admin',
           date:   new Date().toISOString().slice(0, 10)
         })
-<<<<<<< HEAD
         api.patch(`/admin/users/${id}/status`, { action: 'activate' }).catch(() => {})
-=======
-        try { api.patch(`/admin/users/${id}/status`, { action: 'activate' }) } catch {}
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
       }
     },
 
@@ -111,10 +100,7 @@ export const useAdminStore = defineStore('admin', {
           admin:  'Admin',
           date:   new Date().toISOString().slice(0, 10)
         })
-<<<<<<< HEAD
         api.patch(`/admin/reports/${id}/resolve`).catch(() => {})
-=======
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
       }
     },
 
