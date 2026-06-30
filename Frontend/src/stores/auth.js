@@ -88,6 +88,14 @@ export const useAuthStore = defineStore('auth', {
         this.user  = user
         persistUser(user)
         localStorage.setItem('token', token)
+
+        // Load this account's own wallet/booking data instead of whatever
+        // was in memory for the previous session.
+        const { useWalletStore }  = await import('./wallet.js')
+        const { useBookingStore } = await import('./booking.js')
+        useWalletStore().reload()
+        useBookingStore().reload()
+
         return true
 
       } catch (err) {
@@ -116,6 +124,14 @@ export const useAuthStore = defineStore('auth', {
           email:    user.email,
           password: userData.password
         })
+
+        // Every new account starts with an RM50 welcome bonus in its wallet.
+        const { useWalletStore }  = await import('./wallet.js')
+        const { useBookingStore } = await import('./booking.js')
+        useWalletStore().reload()
+        useWalletStore().grantSignupBonus(50)
+        useBookingStore().reload()
+
         return true
 
       } catch (err) {
@@ -188,7 +204,7 @@ export const useAuthStore = defineStore('auth', {
       persistUser(updated)
     },
 
-    logout() {
+    async logout() {
       this.user  = null
       this.token = null
       this.approvalNotification = null
@@ -196,9 +212,15 @@ export const useAuthStore = defineStore('auth', {
         localStorage.removeItem('user')
         localStorage.removeItem('token')
         localStorage.removeItem('ss_approval_notif')
-        localStorage.removeItem('ss_bookings')
-        localStorage.removeItem('ss_wallet')
       } catch (e) {}
+
+      // Wallet/booking data is now kept per-account (not deleted here) so
+      // it's still there next time this account logs back in. Just reset
+      // the in-memory state back to a neutral "guest" view.
+      const { useWalletStore }  = await import('./wallet.js')
+      const { useBookingStore } = await import('./booking.js')
+      useWalletStore().reload()
+      useBookingStore().reload()
     }
   }
 })

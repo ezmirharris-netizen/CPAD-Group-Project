@@ -40,6 +40,16 @@ return function(App $app) {
 
     $app->put('/api/profile', [$authController, 'updateProfile'])->add(new JwtAuthMiddleware());
 
+    // Skills currently on the authenticated user's own profile (used to
+    // repopulate the Profile page after a refresh/re-login — previously
+    // nothing read this back, so added skills only appeared until the
+    // next page load even though they were saved to user_skills).
+    $app->get('/api/profile/skills', function($request, $response) use ($skillModel) {
+        $user = $request->getAttribute('user');
+        $response->getBody()->write(json_encode($skillModel->getUserSkills((int)$user['id'])));
+        return $response->withHeader('Content-Type', 'application/json');
+    })->add(new JwtAuthMiddleware());
+
     // ─── SKILLS ──────────────────────────────────────────
     // List all skills (for dropdowns / discovery)
     $app->get('/api/skills', function($request, $response) use ($skillModel) {

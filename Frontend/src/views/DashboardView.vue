@@ -14,10 +14,10 @@ const reviewStore  = useReviewStore()
 onMounted(() => {
   if (authStore.isAdmin) {
     bookingStore.fetchBookings('admin')
-  } else if (authStore.isTutor) {
-    bookingStore.fetchBookings('tutor')
   } else {
-    bookingStore.fetchBookings('learner')
+    // Merge learner-side and tutor-side bookings so becoming a tutor
+    // doesn't hide sessions booked while still a tutee.
+    bookingStore.fetchAllMyBookings()
   }
   if (authStore.user?.id) {
     reviewStore.fetchForTutor(authStore.user.id)
@@ -68,16 +68,18 @@ const tutorEarnings = computed(() => walletStore.tutorTotalEarnings.toFixed(2))
   <!-- ── Stats ──────────────────────────────────────────────────────── -->
   <div class="stats">
 
-    <!-- TUTEE: show Wallet Balance only (no earnings) -->
-    <template v-if="!authStore.isTutor && !authStore.isAdmin">
+    <!-- TUTEE wallet balance: shown for everyone except admin, since a
+         tutor can still hold a spending balance from before they became
+         a tutor. -->
+    <template v-if="!authStore.isAdmin">
       <div class="card stat-card">
         <div class="stat-icon earnings">💰</div>
         <div><h3>Wallet Balance</h3><p>RM {{ walletBalance }}</p></div>
       </div>
     </template>
 
-    <!-- TUTOR: show earnings from paid sessions -->
-    <template v-else-if="authStore.isTutor">
+    <!-- TUTOR: also show earnings from paid sessions -->
+    <template v-if="authStore.isTutor">
       <div class="card stat-card">
         <div class="stat-icon earnings">💰</div>
         <div><h3>Total Earnings</h3><p>RM {{ tutorEarnings }}</p></div>
@@ -85,7 +87,7 @@ const tutorEarnings = computed(() => walletStore.tutorTotalEarnings.toFixed(2))
     </template>
 
     <!-- ADMIN: show platform-wide earnings -->
-    <template v-else>
+    <template v-if="authStore.isAdmin">
       <div class="card stat-card">
         <div class="stat-icon earnings">💰</div>
         <div><h3>Total Earnings</h3><p>RM {{ totalEarnings }}</p></div>
@@ -113,7 +115,7 @@ const tutorEarnings = computed(() => walletStore.tutorTotalEarnings.toFixed(2))
   <div class="card" style="margin-bottom:25px">
     <h2 style="margin-bottom:20px">Quick Actions</h2>
     <div style="display:flex;gap:15px;flex-wrap:wrap">
-      <RouterLink v-if="!authStore.isTutor && !authStore.isAdmin" to="/discover">
+      <RouterLink v-if="!authStore.isAdmin" to="/discover">
         <button>Find Tutors</button>
       </RouterLink>
       <RouterLink v-if="authStore.isAdmin" to="/admin">
@@ -164,7 +166,7 @@ const tutorEarnings = computed(() => walletStore.tutorTotalEarnings.toFixed(2))
 
     <div v-else class="empty-state">
       <i class="fa-solid fa-calendar-days"></i>
-      <p v-if="!authStore.isTutor && !authStore.isAdmin">
+      <p v-if="!authStore.isAdmin">
         No upcoming bookings. <RouterLink to="/discover" style="color:var(--primary)">Find a tutor</RouterLink>!
       </p>
       <p v-else>No upcoming sessions.</p>

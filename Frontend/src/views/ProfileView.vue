@@ -46,17 +46,34 @@ const applyError = ref('')
 
 watch(
   () => authStore.user,
-  (newUser) => { profile.value = buildProfile(newUser) },
+  (newUser) => {
+    // Skills are managed separately via skillStore (the backend never
+    // embeds skills in the user payload), so preserve whatever is
+    // currently shown instead of wiping it out on every profile update.
+    const currentSkills = profile.value.skills
+    profile.value = buildProfile(newUser)
+    profile.value.skills = currentSkills
+  },
   { deep: true }
 )
 
-onMounted(() => {
+onMounted(async () => {
   bookingStore.fetchBookings(authStore.isTutor ? 'tutor' : 'learner')
   if (authStore.user?.id) {
     reviewStore.fetchForTutor(authStore.user.id)
   }
   // Pre-load skill categories for autocomplete / display
   skillStore.fetchAllSkills()
+
+  // Re-load the skills already saved on this profile. Skills are stored
+  // server-side in `user_skills`, but nothing previously read them back,
+  // so they only appeared until the next page load/re-login.
+  await skillStore.fetchUserSkills()
+  if (skillStore.userSkills.length) {
+    profile.value.skills = skillStore.userSkills.map(s => ({
+      id: s.id, name: s.name, category: s.category
+    }))
+  }
 })
 
 const currentRole = computed(() => authStore.user?.role || 'tutee')

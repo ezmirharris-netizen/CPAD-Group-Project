@@ -39,7 +39,9 @@ class AuthController
             $hashedPassword,
             $data['faculty'] ?? '',
             $data['role']    ?? 'tutee',
-            $data['bio']     ?? ''
+            $data['bio']     ?? '',
+            $data['course']  ?? '',
+            isset($data['year']) && $data['year'] !== '' ? (int)$data['year'] : null
         );
 
         $user = $this->userModel->find($userId);
@@ -63,6 +65,8 @@ class AuthController
                 'email'   => $user['email'],
                 'role'    => $user['role'],
                 'faculty' => $user['faculty'],
+                'course'  => $user['course'],
+                'year'    => $user['year'],
                 'bio'     => $user['bio'],
             ]
         ]));
@@ -105,6 +109,8 @@ class AuthController
                 'email'   => $user['email'],
                 'role'    => $user['role'],
                 'faculty' => $user['faculty'],
+                'course'  => $user['course'],
+                'year'    => $user['year'],
                 'bio'     => $user['bio'],
             ]
         ]));
@@ -117,7 +123,7 @@ class AuthController
         $data = $request->getParsedBody();
         $user = $request->getAttribute('user');
 
-        $allowed = ['name', 'faculty', 'bio', 'role'];
+        $allowed = ['name', 'faculty', 'course', 'year', 'bio', 'role'];
         $updates = [];
         foreach ($allowed as $field) {
             if (isset($data[$field])) {
@@ -150,6 +156,8 @@ class AuthController
                 'email'   => $updated['email'],
                 'role'    => $updated['role'],
                 'faculty' => $updated['faculty'],
+                'course'  => $updated['course'],
+                'year'    => $updated['year'],
                 'bio'     => $updated['bio'],
             ]
         ]));

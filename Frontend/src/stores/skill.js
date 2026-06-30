@@ -32,12 +32,16 @@ export const useSkillStore = defineStore('skill', {
       }
     },
 
-    async fetchUserSkills(userId) {
+    // Skills on the CURRENT logged-in user's own profile. Previously this
+    // called a `/tutors/{id}/skills` route that didn't exist on the
+    // backend (404, silently swallowed), so saved skills never reloaded
+    // after a refresh/re-login even though they were in the database.
+    async fetchUserSkills() {
       try {
-        const res = await api.get(`/tutors/${userId}/skills`)
-        this.userSkills = res.data
+        const res = await api.get('/profile/skills')
+        this.userSkills = Array.isArray(res.data) ? res.data : []
       } catch (err) {
-        // Endpoint may not exist in all setups; swallow silently
+        this.userSkills = []
       }
     },
 
