@@ -60,12 +60,8 @@ export const useAuthStore = defineStore('auth', {
     token:   safeGetToken(),
     loading: false,
     error:   null,
-<<<<<<< HEAD
     approvalNotification: localStorage.getItem('ss_approval_notif') || null,
     customAccounts: loadCustomAccounts()
-=======
-    approvalNotification: localStorage.getItem('ss_approval_notif') || null
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
   }),
 
   getters: {
@@ -92,6 +88,14 @@ export const useAuthStore = defineStore('auth', {
         this.user  = user
         persistUser(user)
         localStorage.setItem('token', token)
+
+        // Load this account's own wallet/booking data instead of whatever
+        // was in memory for the previous session.
+        const { useWalletStore }  = await import('./wallet.js')
+        const { useBookingStore } = await import('./booking.js')
+        useWalletStore().reload()
+        useBookingStore().reload()
+
         return true
 
       } catch (err) {
@@ -120,6 +124,14 @@ export const useAuthStore = defineStore('auth', {
           email:    user.email,
           password: userData.password
         })
+
+        // Every new account starts with an RM50 welcome bonus in its wallet.
+        const { useWalletStore }  = await import('./wallet.js')
+        const { useBookingStore } = await import('./booking.js')
+        useWalletStore().reload()
+        useWalletStore().grantSignupBonus(50)
+        useBookingStore().reload()
+
         return true
 
       } catch (err) {
@@ -144,7 +156,6 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-<<<<<<< HEAD
     addCustomAccount(acc) {
       const exists = this.customAccounts.some(a => a.email === acc.email)
       if (exists) return
@@ -152,8 +163,6 @@ export const useAuthStore = defineStore('auth', {
       saveCustomAccounts(this.customAccounts)
     },
 
-=======
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
     notifyApproval(tutorName) {
       const msg = `✅ Your tutor account has been approved! You can now appear in Discover.`
       this.approvalNotification = msg
@@ -165,7 +174,6 @@ export const useAuthStore = defineStore('auth', {
       try { localStorage.removeItem('ss_approval_notif') } catch(e) {}
     },
 
-<<<<<<< HEAD
     async applyAsTutor(profileData) {
       // Persist the role change to the backend so it survives subsequent
       // profile saves (previously this was local-only and got overwritten
@@ -175,9 +183,6 @@ export const useAuthStore = defineStore('auth', {
       } catch (err) {
         // Fall back to local-only update if the backend call fails
       }
-=======
-    applyAsTutor(profileData) {
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
       const updated = {
         ...this.user,
         role: 'tutor',
@@ -199,7 +204,7 @@ export const useAuthStore = defineStore('auth', {
       persistUser(updated)
     },
 
-    logout() {
+    async logout() {
       this.user  = null
       this.token = null
       this.approvalNotification = null
@@ -207,9 +212,15 @@ export const useAuthStore = defineStore('auth', {
         localStorage.removeItem('user')
         localStorage.removeItem('token')
         localStorage.removeItem('ss_approval_notif')
-        localStorage.removeItem('ss_bookings')
-        localStorage.removeItem('ss_wallet')
       } catch (e) {}
+
+      // Wallet/booking data is now kept per-account (not deleted here) so
+      // it's still there next time this account logs back in. Just reset
+      // the in-memory state back to a neutral "guest" view.
+      const { useWalletStore }  = await import('./wallet.js')
+      const { useBookingStore } = await import('./booking.js')
+      useWalletStore().reload()
+      useBookingStore().reload()
     }
   }
 })

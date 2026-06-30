@@ -1,10 +1,23 @@
 import { defineStore } from 'pinia'
 import api from '../api.js'
 
-function save(data) { try { localStorage.setItem('ss_bookings', JSON.stringify(data)) } catch(e) {} }
+// Scope locally-cached booking data (paid flags) per account, same as the
+// wallet store, so switching accounts doesn't mix up "paid" state.
+function currentUserId() {
+  try {
+    const raw = localStorage.getItem('user')
+    if (!raw || raw === 'undefined' || raw === 'null') return 'guest'
+    return JSON.parse(raw)?.id ?? 'guest'
+  } catch (e) {
+    return 'guest'
+  }
+}
+function storageKey() { return `ss_bookings_${currentUserId()}` }
+
+function save(data) { try { localStorage.setItem(storageKey(), JSON.stringify(data)) } catch(e) {} }
 function load(key, fallback) {
   try {
-    const s = localStorage.getItem('ss_bookings')
+    const s = localStorage.getItem(storageKey())
     if (!s || s === 'undefined') return fallback
     return JSON.parse(s)?.[key] ?? fallback
   } catch { return fallback }
@@ -38,6 +51,13 @@ export const useBookingStore = defineStore('booking', {
       save({ bookings: this.bookings, paidBookingIds: this.paidBookingIds })
     },
 
+    // Re-read the paid-booking flags for whichever account is currently
+    // logged in. Call after login/register/logout.
+    reload() {
+      this.paidBookingIds = load('paidBookingIds', [])
+      this.bookings = []
+    },
+
     async fetchBookings(role = 'learner') {
       this.loading = true
       this.error   = null
@@ -45,6 +65,35 @@ export const useBookingStore = defineStore('booking', {
         const res = await api.get('/bookings', { params: { role } })
         const data = Array.isArray(res.data) ? res.data : []
         this.bookings = normalise(data)
+        this._persist()
+      } catch (err) {
+        this.error = 'Could not load bookings.'
+        this.bookings = []
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // Fetch bookings for BOTH roles a person can hold at once (as a learner
+    // booking sessions, and as a tutor teaching them) and merge them.
+    // A tutee who becomes a tutor keeps their old learner bookings instead
+    // of losing them just because their account role changed.
+    async fetchAllMyBookings() {
+      this.loading = true
+      this.error   = null
+      try {
+        const [learnerRes, tutorRes] = await Promise.all([
+          api.get('/bookings', { params: { role: 'learner' } }),
+          api.get('/bookings', { params: { role: 'tutor' } })
+        ])
+        const learnerData = Array.isArray(learnerRes.data) ? learnerRes.data : []
+        const tutorData   = Array.isArray(tutorRes.data) ? tutorRes.data : []
+
+        const merged = new Map()
+        for (const b of normalise(learnerData)) merged.set(b.id, b)
+        for (const b of normalise(tutorData))   merged.set(b.id, b)
+
+        this.bookings = Array.from(merged.values())
         this._persist()
       } catch (err) {
         this.error = 'Could not load bookings.'

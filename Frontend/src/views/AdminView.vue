@@ -18,11 +18,8 @@ onMounted(() => {
   tutorStore.reloadFromStorage()
   bookingStore.fetchBookings('admin')
   adminStore.fetchUsers()
-<<<<<<< HEAD
   adminStore.fetchReports()
   adminStore.fetchLogs()
-=======
->>>>>>> 7f3a5899a67c3a5276f68b25c51b09c2f7360438
 })
 
 const totalUsers    = computed(() => adminStore.users.length + tutorStore.pendingTutors.length)
