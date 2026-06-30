@@ -13,16 +13,16 @@ final class Database
     {
         if (self::$pdo) return self::$pdo;
 
-        $dsn = sprintf(
-            'mysql:host=%s;port=%s;dbname=%s;charset=%s',
-            $_ENV['DB_HOST']    ?? '127.0.0.1',
-            $_ENV['DB_PORT']    ?? '3306',
-            $_ENV['DB_NAME']    ?? 'SkillSwap',
-            $_ENV['DB_CHARSET'] ?? 'utf8mb4'
-        );
+        $host     = $_ENV['PGHOST']     ?? getenv('PGHOST')     ?? '127.0.0.1';
+        $port     = $_ENV['PGPORT']     ?? getenv('PGPORT')     ?? '5432';
+        $dbname   = $_ENV['PGDATABASE'] ?? getenv('PGDATABASE') ?? 'postgres';
+        $user     = $_ENV['PGUSER']     ?? getenv('PGUSER')     ?? 'postgres';
+        $password = $_ENV['PGPASSWORD'] ?? getenv('PGPASSWORD') ?? '';
+
+        $dsn = "pgsql:host={$host};port={$port};dbname={$dbname}";
 
         try {
-            self::$pdo = new PDO($dsn, $_ENV['DB_USER'] ?? 'root', $_ENV['DB_PASS'] ?? '', [
+            self::$pdo = new PDO($dsn, $user, $password, [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
