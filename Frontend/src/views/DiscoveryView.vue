@@ -154,7 +154,10 @@ const tutorReviews = computed(() => {
   return reviewStore.reviewsForUser(selectedTutor.value.id)
 })
 
-function openTutorModal(tutor)  { selectedTutor.value = tutor }
+function openTutorModal(tutor)  {
+  selectedTutor.value = tutor
+  if (tutor?.id) reviewStore.fetchForTutor(tutor.id)
+}
 function closeTutorModal()      { selectedTutor.value = null  }
 
 // ── Open the booking wizard ──────────────────────────────────────
@@ -182,15 +185,21 @@ function closeBookingWizard() {
 async function confirmBooking() {
   if (!selectedDay.value || !selectedSlot.value) return
   bookingSubmitting.value = true
-  await bookingStore.createBooking({
+  const result = await bookingStore.createBooking({
     tutor_name:    bookingTutor.value.name,
     skill_name:    bookingTutor.value.skill,
     schedule_time: scheduleString.value,
     price:         Number(totalCost.value),
     tutor_id:      bookingTutor.value.id,
+    skill_id:      bookingTutor.value.skill_id,
     duration:      duration.value,
     note:          bookingNote.value
   })
+  if (!result.success) {
+    bookingSubmitting.value = false
+    alert(result.error || 'Booking failed. Please try again.')
+    return
+  }
   bookingSubmitting.value = false
   bookingSuccess.value    = true
 }
@@ -402,7 +411,7 @@ function stars(n) { return '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.r
       <div v-if="tutorReviews.length" style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
         <div v-for="r in tutorReviews" :key="r.id" class="review-item">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <strong style="font-size:.86rem">{{ r.reviewerRole }}</strong>
+            <strong style="font-size:.86rem">{{ r.reviewerName }}</strong>
             <span style="color:#f59e0b">{{ '★'.repeat(r.rating) }}{{ '☆'.repeat(5-r.rating) }}</span>
           </div>
           <p style="color:var(--text-muted);font-size:.86rem">{{ r.comment }}</p>

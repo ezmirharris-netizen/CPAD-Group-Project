@@ -19,6 +19,9 @@ onMounted(() => {
   } else {
     bookingStore.fetchBookings('learner')
   }
+  if (authStore.user?.id) {
+    reviewStore.fetchForTutor(authStore.user.id)
+  }
 })
 
 const upcomingBookings = computed(() =>

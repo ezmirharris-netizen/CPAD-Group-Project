@@ -46,6 +46,9 @@ watch(
 
 onMounted(() => {
   bookingStore.fetchBookings(authStore.isTutor ? 'tutor' : 'learner')
+  if (authStore.user?.id) {
+    reviewStore.fetchForTutor(authStore.user.id)
+  }
 })
 
 const currentRole = computed(() => authStore.user?.role || 'tutee')
@@ -257,7 +260,7 @@ function stars(n) {
       >
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
           <div>
-            <span class="badge badge-primary" style="margin-right:8px">{{ r.reviewerRole }}</span>
+            <span class="badge badge-primary" style="margin-right:8px">{{ r.reviewerName }}</span>
             <small style="color:var(--text-muted)">{{ r.date }}</small>
           </div>
           <div style="color:#f59e0b;font-size:1.1rem">{{ stars(r.rating) }}</div>

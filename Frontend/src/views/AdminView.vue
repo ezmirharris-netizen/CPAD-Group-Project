@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import { useTutorStore }   from '../stores/tutor'
 import { useAuthStore }    from '../stores/auth'
 import { useBookingStore } from '../stores/booking'
+import { useAdminStore }   from '../stores/admin'
 import UserManagement    from '../components/admin/UserManagement.vue'
 import ContentModeration from '../components/admin/ContentModeration.vue'
 import DisputeResolution from '../components/admin/DisputeResolution.vue'
@@ -11,16 +12,15 @@ import AuditLog          from '../components/admin/AuditLog.vue'
 const tutorStore   = useTutorStore()
 const authStore    = useAuthStore()
 const bookingStore = useBookingStore()
+const adminStore   = useAdminStore()
 
-// Always re-read from localStorage when admin opens this page so data
-// written by other accounts (e.g. tutee applying as tutor) is visible
-// even after a logout → login or account switcher navigation.
 onMounted(() => {
   tutorStore.reloadFromStorage()
   bookingStore.fetchBookings('admin')
+  adminStore.fetchUsers()
 })
 
-const totalUsers    = computed(() => 9 + tutorStore.pendingTutors.length)
+const totalUsers    = computed(() => adminStore.users.length + tutorStore.pendingTutors.length)
 const totalBookings = computed(() => bookingStore.bookings.length)
 const pendingCount  = computed(() => tutorStore.pendingTutors.length + tutorStore.pendingSessions.length)
 

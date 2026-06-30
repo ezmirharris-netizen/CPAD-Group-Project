@@ -16,10 +16,10 @@ function logout() {
   router.push('/login')
 }
 
-function switchAccount(email) {
-  const ok = authStore.switchToDemo(email)
-  if (!ok) return
+async function switchAccount(acc) {
   showSwitcher.value = false
+  const ok = await authStore.login(acc.email, acc.password)
+  if (!ok) return
   router.push(authStore.user?.role === 'admin' ? '/admin' : '/dashboard')
 }
 
@@ -63,12 +63,12 @@ const isActive = (path) => route.path === path
           :key="acc.email"
           class="switcher-row"
           :class="{ 'switcher-active': authStore.user?.email === acc.email }"
-          @click="switchAccount(acc.email)"
+          @click="switchAccount(acc)"
         >
           <div class="switcher-avatar">{{ acc.label.charAt(0) }}</div>
           <div class="switcher-info">
             <span>{{ acc.label }}</span>
-            <small>{{ acc.user.role }}</small>
+            <small>{{ acc.email }}</small>
           </div>
           <span v-if="authStore.user?.email === acc.email" class="switcher-check">✓</span>
         </div>
