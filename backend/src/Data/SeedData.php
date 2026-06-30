@@ -22,7 +22,7 @@ final class SeedData
      */
     public function run(): array
     {
-        $count = (int) $this->pdo->query('SELECT COUNT(*) FROM "User"')->fetchColumn();
+        $count = (int) $this->pdo->query('SELECT COUNT(*) FROM `users`')->fetchColumn();
         if ($count > 0) {
             return ['message' => 'Already seeded', 'users' => $count];
         }
@@ -33,7 +33,7 @@ final class SeedData
 
         // ── Users ──────────────────────────────────────────────
         $insertUser = $this->pdo->prepare(
-            'INSERT INTO "User" (name, email, password_hash, faculty, photo_url, role, bio) VALUES (?,?,?,?,?,?,?)'
+            'INSERT INTO `users` (name, email, password_hash, faculty, photo_url, role, bio) VALUES (?,?,?,?,?,?,?)'
         );
         $users = [
             ['System Admin',  'admin@skillswap.com',   $hashAdmin, 'Administration',         '', 'admin', 'Platform administrator.'],
@@ -49,7 +49,7 @@ final class SeedData
         foreach ($users as $u) $insertUser->execute($u);
 
         // ── Skills ─────────────────────────────────────────────
-        $insertSkill = $this->pdo->prepare('INSERT INTO "Skill" (name, category) VALUES (?,?)');
+        $insertSkill = $this->pdo->prepare('INSERT INTO `skills` (name, category) VALUES (?,?)');
         $skills = [
             ['Vue.js',          'Web Development'],
             ['React.js',        'Web Development'],
@@ -66,7 +66,7 @@ final class SeedData
 
         // ── UserSkills ─────────────────────────────────────────
         $insertUS = $this->pdo->prepare(
-            'INSERT INTO "UserSkill" (user_id, skill_id, hourly_rate, level) VALUES (?,?,?,?)'
+            'INSERT INTO `user_skills` (user_id, skill_id, hourly_rate, level) VALUES (?,?,?,?)'
         );
         $userSkills = [
             [2, 1, 40, 'Advanced'], [2, 2, 40, 'Advanced'],
@@ -80,7 +80,7 @@ final class SeedData
 
         // ── Bookings ───────────────────────────────────────────
         $insertB = $this->pdo->prepare(
-            'INSERT INTO "Booking" (learner_id, tutor_id, skill_id, schedule_time, status, price) VALUES (?,?,?,?,?,?)'
+            'INSERT INTO `bookings` (learner_id, tutor_id, skill_id, schedule_time, status, price) VALUES (?,?,?,?,?,?)'
         );
         $bookings = [
             [7, 2, 1, '2026-06-25 20:00:00', 'accepted',  80.00],
@@ -93,7 +93,7 @@ final class SeedData
 
         // ── Reviews ────────────────────────────────────────────
         $insertR = $this->pdo->prepare(
-            'INSERT INTO "Review" (booking_id, rating, comment, created_at) VALUES (?,?,?,NOW())'
+            'INSERT INTO `reviews` (booking_id, rating, comment, created_at) VALUES (?,?,?,NOW())'
         );
         $reviews = [
             [2, 5, 'Jason explained calculus so clearly. Highly recommend!'],
@@ -103,7 +103,7 @@ final class SeedData
 
         // ── Messages ───────────────────────────────────────────
         $insertM = $this->pdo->prepare(
-            'INSERT INTO "Message" (sender_id, receiver_id, body, sent_at) VALUES (?,?,?,NOW())'
+            'INSERT INTO `messages` (sender_id, receiver_id, body, sent_at) VALUES (?,?,?,NOW())'
         );
         $messages = [
             [7, 2, 'Hi Sarah! Is your Vue.js session still available?'],
@@ -114,6 +114,28 @@ final class SeedData
             [7, 6, 'How about this Friday at 9PM?'],
         ];
         foreach ($messages as $m) $insertM->execute($m);
+
+        // ── Content Reports ─────────────────────────────────────
+        $insertCR = $this->pdo->prepare(
+            'INSERT INTO `content_reports` (content_type, content_id, title, reported_by, reason, status) VALUES (?,?,?,?,?,?)'
+        );
+        $reports = [
+            ['message', 1, 'Inappropriate language in chat',  8, 'Used offensive language towards a tutor.',          'pending'],
+            ['review',  1, 'Suspicious 5-star review',         7, 'Possible fake review, no real session took place.', 'pending'],
+            ['profile', 4, 'Misleading bio claims',            9, 'Profile claims credentials that cannot be verified.', 'resolved'],
+        ];
+        foreach ($reports as $r) $insertCR->execute($r);
+
+        // ── Audit Log ──────────────────────────────────────────
+        $insertAL = $this->pdo->prepare(
+            'INSERT INTO `audit_log` (admin_id, action, target_type, target_id, details) VALUES (?,?,?,?,?)'
+        );
+        $logs = [
+            [1, 'User Suspended',   'user',           7, 'Suspended after repeated content report.'],
+            [1, 'Report Resolved',  'content_report',  3, 'Reviewed bio claim, tutor provided certificate.'],
+            [1, 'Tutor Approved',   'user',           2, 'Approved Sarah Lim as a tutor after document check.'],
+        ];
+        foreach ($logs as $l) $insertAL->execute($l);
 
         return ['message' => 'Seed completed successfully!', 'users' => count($users)];
     }

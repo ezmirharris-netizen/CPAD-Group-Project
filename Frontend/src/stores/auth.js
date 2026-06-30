@@ -15,7 +15,11 @@ function safeParseUser() {
 function safeGetToken() {
   try {
     const token = localStorage.getItem('token')
-    if (!token || token === 'undefined' || token === 'null') return null
+    if (!token || token === 'undefined' || token === 'null' || token === 'demo-token') {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      return null
+    }
     return token
   } catch (e) {
     return null
@@ -26,44 +30,29 @@ function persistUser(user) {
   try { localStorage.setItem('user', JSON.stringify(user)) } catch (e) {}
 }
 
-// All demo accounts — used by both login fallback and the account switcher
+// Demo account credentials shown on the login page for convenience
 export const DEMO_ACCOUNTS = [
-  {
-    key: 'admin',
-    label: 'System Admin', email: 'admin@skillswap.com', password: 'admin123',
-    user: { id: 1, name: 'System Admin', email: 'admin@skillswap.com', role: 'admin',
-            faculty: 'Administration', bio: 'Platform administrator.',
-            course: 'N/A', year: 0, skills: [], hourlyRate: '', availability: '',
-            approved: true, needsTutorSetup: false }
-  },
-  {
-    key: 'tutor-john',
-    label: 'John Tutor', email: 'tutor@skillswap.com', password: '123456',
-    user: { id: 6, name: 'John Tutor', email: 'tutor@skillswap.com', role: 'tutor',
-            faculty: 'Faculty of Computing', bio: 'Full-stack developer teaching Java, Python and Data Structures.',
-            course: 'Software Engineering', year: 3, skills: ['Java','Python','Data Structures'],
-            hourlyRate: 35, availability: 'Weekdays 8PM-11PM',
-            approved: true, needsTutorSetup: false }
-  },
-  {
-    key: 'tutor-sarah',
-    label: 'Sarah Lim', email: 'sarah@skillswap.com', password: '123456',
-    user: { id: 2, name: 'Sarah Lim', email: 'sarah@skillswap.com', role: 'tutor',
-            faculty: 'Faculty of Computing', bio: 'Passionate Vue.js & web dev tutor with 3 years experience.',
-            course: 'Computer Science', year: 4, skills: ['Vue.js','React.js'],
-            hourlyRate: 40, availability: 'Weekends',
-            approved: true, needsTutorSetup: false }
-  },
-  {
-    key: 'tutee',
-    label: 'Demo Student', email: 'student@skillswap.com', password: '123456',
-    user: { id: 7, name: 'Demo Student', email: 'student@skillswap.com', role: 'tutee',
-            faculty: 'Faculty of Computing', bio: '',
-            course: 'Information Systems', year: 2, skills: [],
-            hourlyRate: '', availability: '',
-            approved: true, needsTutorSetup: false }
-  },
+  { key: 'admin',      label: 'System Admin',  email: 'admin@skillswap.com', password: 'admin123' },
+  { key: 'tutor-john', label: 'John Tutor',    email: 'tutor@skillswap.com', password: '123456'   },
+  { key: 'tutor-sarah',label: 'Sarah Lim',     email: 'sarah@skillswap.com', password: '123456'   },
+  { key: 'tutee',      label: 'Demo Student',  email: 'demo@skillswap.com',  password: 'password123' },
 ]
+
+// Accounts created via the Register form are appended here (persisted in
+// localStorage) so they also show up in the "Switch Demo Account" list.
+function loadCustomAccounts() {
+  try {
+    const raw = localStorage.getItem('ss_custom_accounts')
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch (e) {
+    return []
+  }
+}
+
+function saveCustomAccounts(list) {
+  try { localStorage.setItem('ss_custom_accounts', JSON.stringify(list)) } catch (e) {}
+}
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -71,8 +60,8 @@ export const useAuthStore = defineStore('auth', {
     token:   safeGetToken(),
     loading: false,
     error:   null,
-    // Notification shown after admin approves a tutor account
-    approvalNotification: localStorage.getItem('ss_approval_notif') || null
+    approvalNotification: localStorage.getItem('ss_approval_notif') || null,
+    customAccounts: loadCustomAccounts()
   }),
 
   getters: {
@@ -80,8 +69,10 @@ export const useAuthStore = defineStore('auth', {
     isTutor:    (state) => state.user?.role === 'tutor',
     isTutee:    (state) => state.user?.role === 'tutee',
     isAdmin:    (state) => state.user?.role === 'admin',
+    // Combined list for the "Switch Demo Account" / login-page credentials UI.
+    allDemoAccounts: (state) => [...DEMO_ACCOUNTS, ...state.customAccounts],
     needsTutorSetup: (state) =>
-      state.user?.role === 'tutor' && !state.user?.approved
+      state.user?.role === 'tutor' && state.user?.approved === false
   },
 
   actions: {
@@ -99,33 +90,8 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('token', token)
         return true
 
-      } catch {
-        const match = DEMO_ACCOUNTS.find(a => a.email === email && a.password === password)
-
-        if (match) {
-          this.token = 'demo-token'
-          this.user  = { ...match.user }
-          persistUser(this.user)
-          localStorage.setItem('token', 'demo-token')
-          return true
-        }
-
-        // Generic fallback for any credentials
-        if (email && password) {
-          const user = {
-            id: Date.now(), name: email.split('@')[0], email,
-            role: 'tutee', faculty: '', bio: '',
-            course: '', year: 1, skills: [], hourlyRate: '', availability: '',
-            approved: true, needsTutorSetup: false
-          }
-          this.token = 'demo-token'
-          this.user  = user
-          persistUser(user)
-          localStorage.setItem('token', 'demo-token')
-          return true
-        }
-
-        this.error = 'Login failed. Please check your credentials.'
+      } catch (err) {
+        this.error = err.response?.data?.error || 'Invalid email or password.'
         return false
 
       } finally {
@@ -144,31 +110,17 @@ export const useAuthStore = defineStore('auth', {
         this.user  = user
         persistUser(user)
         localStorage.setItem('token', token)
+        this.addCustomAccount({
+          key:      `user-${user.id}`,
+          label:    user.name,
+          email:    user.email,
+          password: userData.password
+        })
         return true
 
-      } catch {
-        const isNewTutor = userData.role === 'tutor'
-        const user = {
-          id:              Date.now(),
-          name:            userData.name      || 'New User',
-          email:           userData.email     || '',
-          role:            userData.role      || 'tutee',
-          faculty:         userData.faculty   || '',
-          course:          userData.course    || '',
-          year:            userData.year      || 1,
-          bio:             '',
-          skills:          [],
-          hourlyRate:      '',
-          availability:    '',
-          // New tutors need admin approval before appearing in Discover
-          approved:        !isNewTutor,
-          needsTutorSetup: isNewTutor
-        }
-        this.token = 'demo-token'
-        this.user  = user
-        persistUser(user)
-        localStorage.setItem('token', 'demo-token')
-        return true
+      } catch (err) {
+        this.error = err.response?.data?.error || 'Registration failed. Please try again.'
+        return false
 
       } finally {
         this.loading = false
@@ -176,35 +128,25 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async updateProfile(profileData) {
-      const updated = { ...this.user, ...profileData }
-      this.user = updated
-      persistUser(updated)
-
       try {
         const res = await api.put('/profile', profileData)
         if (res.data?.user) {
-          const serverUser = { ...updated, ...res.data.user }
+          const serverUser = { ...this.user, ...res.data.user }
           this.user = serverUser
           persistUser(serverUser)
         }
-      } catch {
-        // Keep localStorage update
+      } catch (err) {
+        // Keep existing user data on failure
       }
     },
 
-    // Instant account switcher — switches without full logout/login
-    switchToDemo(email) {
-      const match = DEMO_ACCOUNTS.find(a => a.email === email)
-      if (!match) return false
-      this.user  = { ...match.user }
-      this.token = 'demo-token'
-      this.error = null
-      persistUser(this.user)
-      localStorage.setItem('token', 'demo-token')
-      return true
+    addCustomAccount(acc) {
+      const exists = this.customAccounts.some(a => a.email === acc.email)
+      if (exists) return
+      this.customAccounts = [...this.customAccounts, acc]
+      saveCustomAccounts(this.customAccounts)
     },
 
-    // Called by admin when approving a tutor registration
     notifyApproval(tutorName) {
       const msg = `✅ Your tutor account has been approved! You can now appear in Discover.`
       this.approvalNotification = msg
@@ -216,8 +158,15 @@ export const useAuthStore = defineStore('auth', {
       try { localStorage.removeItem('ss_approval_notif') } catch(e) {}
     },
 
-    // A tutee who wants to become a tutor
-    applyAsTutor(profileData) {
+    async applyAsTutor(profileData) {
+      // Persist the role change to the backend so it survives subsequent
+      // profile saves (previously this was local-only and got overwritten
+      // by the server's stale 'tutee' role on the next updateProfile call).
+      try {
+        await api.put('/profile', { role: 'tutor', bio: profileData.bio })
+      } catch (err) {
+        // Fall back to local-only update if the backend call fails
+      }
       const updated = {
         ...this.user,
         role: 'tutor',
@@ -225,6 +174,16 @@ export const useAuthStore = defineStore('auth', {
         needsTutorSetup: true,
         ...profileData
       }
+      this.user = updated
+      persistUser(updated)
+    },
+
+    // Mark the currently logged-in user as an unapproved tutor. Used right
+    // after registering directly as a tutor (separate from applyAsTutor,
+    // which is for tutees upgrading from the profile page).
+    markTutorPending() {
+      if (!this.user) return
+      const updated = { ...this.user, approved: false }
       this.user = updated
       persistUser(updated)
     },
@@ -237,6 +196,8 @@ export const useAuthStore = defineStore('auth', {
         localStorage.removeItem('user')
         localStorage.removeItem('token')
         localStorage.removeItem('ss_approval_notif')
+        localStorage.removeItem('ss_bookings')
+        localStorage.removeItem('ss_wallet')
       } catch (e) {}
     }
   }

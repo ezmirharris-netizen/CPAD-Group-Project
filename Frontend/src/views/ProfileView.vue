@@ -4,11 +4,13 @@ import { useAuthStore }   from '../stores/auth'
 import { useBookingStore } from '../stores/booking'
 import { useReviewStore } from '../stores/review'
 import { useTutorStore }  from '../stores/tutor'
+import { useSkillStore }  from '../stores/skill'
 
 const authStore    = useAuthStore()
 const bookingStore = useBookingStore()
 const reviewStore  = useReviewStore()
 const tutorStore   = useTutorStore()
+const skillStore   = useSkillStore()
 
 function buildProfile(user) {
   return {
@@ -26,7 +28,10 @@ function buildProfile(user) {
 }
 
 const profile     = ref(buildProfile(authStore.user))
-const newSkill    = ref('')
+const newSkill         = ref('')
+const newSkillCategory = ref('')
+const skillAddError    = ref('')
+const skillAdding      = ref(false)
 const saving      = ref(false)
 const saved       = ref(false)
 const saveError   = ref('')
@@ -34,7 +39,8 @@ const saveError   = ref('')
 // Tutor application modal
 const showApplyModal = ref(false)
 const applyForm = ref({ bio: '', skills: [], hourlyRate: '', availability: '' })
-const applyNewSkill = ref('')
+const applyNewSkill         = ref('')
+const applyNewSkillCategory = ref('')
 const applying = ref(false)
 const applyError = ref('')
 
@@ -46,10 +52,15 @@ watch(
 
 onMounted(() => {
   bookingStore.fetchBookings(authStore.isTutor ? 'tutor' : 'learner')
+  if (authStore.user?.id) {
+    reviewStore.fetchForTutor(authStore.user.id)
+  }
+  // Pre-load skill categories for autocomplete / display
+  skillStore.fetchAllSkills()
 })
 
 const currentRole = computed(() => authStore.user?.role || 'tutee')
-const isPendingApproval = computed(() => authStore.user?.role === 'tutor' && !authStore.user?.approved)
+const isPendingApproval = computed(() => authStore.user?.role === 'tutor' && authStore.user?.approved === false)
 
 const completedSessions = computed(() =>
   bookingStore.bookings.filter(b => b.status === 'completed').length
@@ -69,13 +80,48 @@ const myReviews = computed(() => {
   return reviewStore.reviewsForUser(uid)
 })
 
-function addSkill() {
-  const s = newSkill.value.trim()
-  if (!s || profile.value.skills.includes(s)) return
-  profile.value.skills.push(s)
-  newSkill.value = ''
+/**
+ * Add a skill to the tutor's profile.
+ * Calls POST /api/skills so the skills table is updated in the database,
+ * then reflects the addition in the local profile.skills array.
+ */
+async function addSkill() {
+  const name     = newSkill.value.trim()
+  const category = newSkillCategory.value.trim()
+  skillAddError.value = ''
+
+  if (!name) { skillAddError.value = 'Please enter a skill name.'; return }
+  if (!category) { skillAddError.value = 'Please enter a category for this skill.'; return }
+
+  const alreadyLocal = profile.value.skills.find(
+    s => (typeof s === 'string' ? s : s.name).toLowerCase() === name.toLowerCase()
+  )
+  if (alreadyLocal) { skillAddError.value = 'This skill is already on your profile.'; return }
+
+  skillAdding.value = true
+  const result = await skillStore.addSkillToProfile(
+    name,
+    category,
+    Number(profile.value.hourlyRate) || 0
+  )
+  skillAdding.value = false
+
+  if (result) {
+    // Store as an object so the template can show the category badge
+    profile.value.skills.push({ id: result.skill.id, name: result.skill.name, category: result.skill.category })
+    newSkill.value         = ''
+    newSkillCategory.value = ''
+  } else {
+    skillAddError.value = skillStore.error || 'Failed to add skill. Try again.'
+  }
 }
-function removeSkill(index) { profile.value.skills.splice(index, 1) }
+
+async function removeSkill(index) {
+  const skill = profile.value.skills[index]
+  const skillId = typeof skill === 'object' ? skill.id : null
+  profile.value.skills.splice(index, 1)
+  if (skillId) await skillStore.removeSkillFromProfile(skillId)
+}
 
 async function saveProfile() {
   saveError.value = ''
@@ -101,9 +147,13 @@ function openApplyModal() {
 
 function addApplySkill() {
   const s = applyNewSkill.value.trim()
-  if (!s || applyForm.value.skills.includes(s)) return
-  applyForm.value.skills.push(s)
-  applyNewSkill.value = ''
+  const c = applyNewSkillCategory.value.trim()
+  if (!s) return
+  const exists = applyForm.value.skills.find(sk => (typeof sk === 'string' ? sk : sk.name).toLowerCase() === s.toLowerCase())
+  if (exists) return
+  applyForm.value.skills.push({ name: s, category: c })
+  applyNewSkill.value         = ''
+  applyNewSkillCategory.value = ''
 }
 function removeApplySkill(i) { applyForm.value.skills.splice(i, 1) }
 
@@ -114,8 +164,27 @@ async function submitApply() {
     return
   }
   applying.value = true
-  authStore.applyAsTutor({ ...applyForm.value })
-  tutorStore.addPendingTutor(authStore.user)
+
+  // Persist the role change (tutee -> tutor) and bio to the backend.
+  await authStore.applyAsTutor({ ...applyForm.value })
+
+  // Persist each applied skill to the backend so the user actually has
+  // rows in `user_skills`. Without this, the user would have role='tutor'
+  // but no skills, and would never appear in /api/tutors (Discovery),
+  // since that query requires a matching skill row.
+  const hourlyRate = Number(applyForm.value.hourlyRate) || 0
+  const savedSkills = []
+  for (const sk of applyForm.value.skills) {
+    const name     = typeof sk === 'string' ? sk : sk.name
+    const category = typeof sk === 'string' ? '' : (sk.category || '')
+    const result = await skillStore.addSkillToProfile(name, category, hourlyRate)
+    if (result?.skill) savedSkills.push(result.skill)
+  }
+  if (savedSkills.length) {
+    profile.value.skills = savedSkills
+  }
+
+  tutorStore.addPendingTutor({ ...authStore.user, skills: savedSkills.length ? savedSkills : applyForm.value.skills })
   applying.value = false
   showApplyModal.value = false
 }
@@ -209,16 +278,34 @@ function stars(n) {
       </div>
       <div class="form-group" style="margin-top:4px">
         <label>Skills You Teach</label>
-        <div style="display:flex;gap:10px;margin-bottom:12px">
-          <input v-model="newSkill" placeholder="e.g. Vue.js" @keyup.enter="addSkill" style="flex:1">
-          <button @click="addSkill">Add</button>
+
+        <!-- Skill name + category inputs side by side -->
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:20px;margin-bottom:8px;align-items:end">
+          <div class="form-group" style="margin-bottom:0">
+            <label>Skill Name</label>
+            <input v-model="newSkill" placeholder="e.g. Vue.js" @keyup.enter="addSkill">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Category</label>
+            <input v-model="newSkillCategory" placeholder="e.g. Technology" @keyup.enter="addSkill">
+          </div>
+          <button @click="addSkill" :disabled="skillAdding" style="white-space:nowrap">
+            {{ skillAdding ? '…' : 'Add Skill' }}
+          </button>
         </div>
+
+        <div v-if="skillAddError" style="color:var(--danger);font-size:.85rem;margin-bottom:8px">⚠ {{ skillAddError }}</div>
+
         <div class="skills-container" style="min-height:36px">
           <span
             v-for="(skill, idx) in profile.skills" :key="idx"
-            class="badge badge-primary" style="cursor:pointer" title="Click to remove"
+            class="badge badge-primary skill-badge" title="Click to remove"
             @click="removeSkill(idx)"
-          >{{ skill }} ✕</span>
+          >
+            <span>{{ typeof skill === 'object' ? skill.name : skill }}</span>
+            <span v-if="typeof skill === 'object' && skill.category" class="skill-category-tag">{{ skill.category }}</span>
+            <span style="margin-left:4px;opacity:.7"> ✕</span>
+          </span>
           <span v-if="!profile.skills.length" style="color:var(--text-muted);font-size:.85rem">No skills added yet</span>
         </div>
       </div>
@@ -257,7 +344,7 @@ function stars(n) {
       >
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
           <div>
-            <span class="badge badge-primary" style="margin-right:8px">{{ r.reviewerRole }}</span>
+            <span class="badge badge-primary" style="margin-right:8px">{{ r.reviewerName }}</span>
             <small style="color:var(--text-muted)">{{ r.date }}</small>
           </div>
           <div style="color:#f59e0b;font-size:1.1rem">{{ stars(r.rating) }}</div>
@@ -299,15 +386,26 @@ function stars(n) {
 
     <div class="form-group">
       <label>Skills You'll Teach <span style="color:var(--danger)">*</span></label>
-      <div style="display:flex;gap:10px;margin-bottom:10px">
-        <input v-model="applyNewSkill" placeholder="e.g. Python" @keyup.enter="addApplySkill" style="flex:1">
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:20px;margin-bottom:10px;align-items:end">
+        <div class="form-group" style="margin-bottom:0">
+          <label>Skill Name</label>
+          <input v-model="applyNewSkill" placeholder="e.g. Python" @keyup.enter="addApplySkill">
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Category</label>
+          <input v-model="applyNewSkillCategory" placeholder="e.g. Technology" @keyup.enter="addApplySkill">
+        </div>
         <button @click="addApplySkill">Add</button>
       </div>
       <div class="skills-container">
         <span
           v-for="(sk,i) in applyForm.skills" :key="i"
-          class="badge badge-primary" style="cursor:pointer" @click="removeApplySkill(i)"
-        >{{ sk }} ✕</span>
+          class="badge badge-primary skill-badge" style="cursor:pointer" @click="removeApplySkill(i)"
+        >
+          <span>{{ typeof sk === 'object' ? sk.name : sk }}</span>
+          <span v-if="typeof sk === 'object' && sk.category" class="skill-category-tag">{{ sk.category }}</span>
+          <span style="margin-left:4px;opacity:.7"> ✕</span>
+        </span>
         <span v-if="!applyForm.skills.length" style="color:var(--text-muted);font-size:.85rem">No skills added</span>
       </div>
     </div>
@@ -333,8 +431,13 @@ function stars(n) {
   margin-bottom: 20px; color: #92400e;
 }
 .info-banner i { margin-top: 2px; flex-shrink: 0; }
-.profile-hero { display: flex; align-items: flex-end; gap: 20px; margin-top: -50px; flex-wrap: wrap; }
-.profile-hero-info { padding-bottom: 12px; }
+.profile-hero { position: relative; padding-left: 130px; padding-top: 14px; min-height: 75px; }
+.profile-avatar.large { position: absolute; left: 0; top: -55px; }
+.profile-hero-info { padding-bottom: 0; }
+@media (max-width: 480px) {
+  .profile-hero { padding-left: 0; padding-top: 65px; }
+  .profile-avatar.large { left: 0; }
+}
 .profile-hero-name { font-size: 1.5rem; margin-bottom: 4px; }
 .profile-hero-email { color: var(--text-muted); font-size: .9rem; }
 .review-card-item {
@@ -343,4 +446,21 @@ function stars(n) {
   transition: box-shadow 0.2s;
 }
 .review-card-item:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+
+.skill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 4px 10px;
+}
+.skill-category-tag {
+  display: inline-block;
+  background: rgba(255,255,255,0.25);
+  border-radius: 6px;
+  padding: 0 6px;
+  font-size: .75rem;
+  font-weight: 500;
+  letter-spacing: .02em;
+}
 </style>

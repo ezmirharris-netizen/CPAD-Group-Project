@@ -1,32 +1,93 @@
 import { defineStore } from 'pinia'
+import api from '../api.js'
 
 export const useSkillStore = defineStore('skill', {
   state: () => ({
-    skills: [
-      {
-        name: 'Web Development',
-        count: 15
-      },
-      {
-        name: 'Database',
-        count: 12
-      },
-      {
-        name: 'Java Programming',
-        count: 10
-      },
-      {
-        name: 'Data Structures',
-        count: 8
-      }
-    ]
+    // All skills that exist in the database
+    allSkills: [],
+    // Skills attached to the current logged-in user's profile
+    userSkills: [],
+    loading: false,
+    error: null,
   }),
 
   getters: {
     trendingSkills(state) {
-      return [...state.skills]
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5)
-    }
-  }
+      // Fall back to a count-based sort; real counts come from the tutor store
+      return [...state.allSkills].slice(0, 5)
+    },
+    categoriesList(state) {
+      const cats = [...new Set(state.allSkills.map(s => s.category).filter(Boolean))]
+      return cats.sort()
+    },
+  },
+
+  actions: {
+    async fetchAllSkills() {
+      try {
+        const res = await api.get('/skills')
+        this.allSkills = res.data
+      } catch (err) {
+        console.error('Failed to load skills', err)
+      }
+    },
+
+    async fetchUserSkills(userId) {
+      try {
+        const res = await api.get(`/tutors/${userId}/skills`)
+        this.userSkills = res.data
+      } catch (err) {
+        // Endpoint may not exist in all setups; swallow silently
+      }
+    },
+
+    /**
+     * Add a skill to the logged-in user's profile.
+     * Sends { name, category, hourly_rate, level } to POST /api/skills.
+     * On success the skills table is updated and userSkills is refreshed.
+     *
+     * @param {string} name
+     * @param {string} category
+     * @param {number} hourlyRate
+     * @param {string} level
+     * @returns {{ skill, user_skill_id }|null}
+     */
+    async addSkillToProfile(name, category, hourlyRate = 0, level = 'Intermediate') {
+      this.loading = true
+      this.error = null
+      try {
+        const res = await api.post('/skills', {
+          name,
+          category,
+          hourly_rate: hourlyRate,
+          level,
+        })
+        // Keep allSkills in sync
+        const exists = this.allSkills.find(s => s.id === res.data.skill.id)
+        if (!exists) this.allSkills.push(res.data.skill)
+        // Keep userSkills in sync
+        const alreadyUser = this.userSkills.find(s => s.id === res.data.skill.id)
+        if (!alreadyUser) this.userSkills.push(res.data.skill)
+        return res.data
+      } catch (err) {
+        this.error = err.response?.data?.error || 'Failed to add skill'
+        return null
+      } finally {
+        this.loading = false
+      }
+    },
+
+    /**
+     * Remove a skill from the logged-in user's profile.
+     * @param {number} skillId
+     */
+    async removeSkillFromProfile(skillId) {
+      try {
+        await api.delete(`/skills/${skillId}`)
+        this.userSkills = this.userSkills.filter(s => s.id !== skillId)
+      } catch (err) {
+        console.error('Failed to remove skill', err)
+      }
+    },
+  },
 })

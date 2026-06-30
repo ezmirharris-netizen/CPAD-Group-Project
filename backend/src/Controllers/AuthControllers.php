@@ -117,11 +117,22 @@ class AuthController
         $data = $request->getParsedBody();
         $user = $request->getAttribute('user');
 
-        $allowed = ['name', 'faculty', 'bio'];
+        $allowed = ['name', 'faculty', 'bio', 'role'];
         $updates = [];
         foreach ($allowed as $field) {
             if (isset($data[$field])) {
                 $updates[$field] = $data[$field];
+            }
+        }
+
+        // Only allow a tutee to self-upgrade to tutor via this endpoint
+        // (e.g. the "Apply as Tutor" flow). Never allow escalation to
+        // admin or any other arbitrary role change here.
+        if (isset($updates['role'])) {
+            if ($updates['role'] === 'tutor' && $user['role'] === 'tutee') {
+                // allowed: tutee applying to become a tutor
+            } else {
+                unset($updates['role']);
             }
         }
 

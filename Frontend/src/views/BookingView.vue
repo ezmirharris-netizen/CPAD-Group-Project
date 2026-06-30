@@ -52,28 +52,31 @@ function closeRatingModal() {
   ratingBooking.value = null
 }
 
-function submitRating() {
+const ratingError = ref('')
+
+async function submitRating() {
   if (!ratingBooking.value) return
-  const me = authStore.user
+  ratingError.value = ''
 
-  // Who is being rated?
-  // If current user is a TUTEE → they rate the TUTOR of this booking
-  // If current user is a TUTOR → they rate the TUTEE of this booking
-  const revieweeId   = ratingBooking.value.tutor_id
-                       || (authStore.isTutor ? ratingBooking.value.learner_id : null)
-                       || null
+  // The database only stores tutee → tutor reviews (the `reviews` table has no
+  // "reviewee" column, it's tied to a booking and joined to bookings.tutor_id).
+  // A tutor rating a tutee isn't supported by the schema yet.
+  if (authStore.isTutor) {
+    ratingError.value = 'Rating learners isn\'t supported yet.'
+    return
+  }
 
-  reviewStore.addReview({
-    reviewerId:   me?.id,
-    revieweeId:   revieweeId,
-    reviewerRole: me?.role,
-    revieweeRole: authStore.isTutor ? 'tutee' : 'tutor',
-    bookingId:    ratingBooking.value.id,
-    rating:       ratingScore.value,
-    comment:      ratingComment.value
-  })
-
-  closeRatingModal()
+  try {
+    await reviewStore.addReview({
+      bookingId: ratingBooking.value.id,
+      tutorId:   ratingBooking.value.tutor_id,
+      rating:    ratingScore.value,
+      comment:   ratingComment.value
+    })
+    closeRatingModal()
+  } catch (err) {
+    ratingError.value = err.response?.data?.error || 'Could not submit review. Please try again.'
+  }
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
@@ -270,6 +273,8 @@ async function declineBooking(id) { await bookingStore.updateStatus(id, 'decline
       rows="3"
       style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;resize:vertical;font-family:inherit;font-size:0.9rem"
     ></textarea>
+
+    <p v-if="ratingError" style="color:#dc2626;font-size:0.85rem;margin-top:10px">{{ ratingError }}</p>
 
     <div style="display:flex;gap:12px;margin-top:18px;justify-content:flex-end">
       <button class="btn-outline" @click="closeRatingModal">Skip</button>

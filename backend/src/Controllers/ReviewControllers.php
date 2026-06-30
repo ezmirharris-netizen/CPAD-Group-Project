@@ -21,11 +21,21 @@ class ReviewController
             return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
         }
 
-        $reviewId = $this->reviewModel->create([
-            'booking_id' => (int)$data['booking_id'],
-            'rating'     => (int)$data['rating'],
-            'comment'    => $data['comment'] ?? '',
-        ]);
+        if ($this->reviewModel->findByBooking((int)$data['booking_id'])) {
+            $response->getBody()->write(json_encode(['error' => 'This booking has already been reviewed']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(409);
+        }
+
+        try {
+            $reviewId = $this->reviewModel->create([
+                'booking_id' => (int)$data['booking_id'],
+                'rating'     => (int)$data['rating'],
+                'comment'    => $data['comment'] ?? '',
+            ]);
+        } catch (\PDOException $e) {
+            $response->getBody()->write(json_encode(['error' => 'Could not save review']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(409);
+        }
 
         $response->getBody()->write(json_encode([
             'message'   => 'Review submitted',

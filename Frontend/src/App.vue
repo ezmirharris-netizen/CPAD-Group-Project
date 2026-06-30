@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore, DEMO_ACCOUNTS } from './stores/auth'
+import { useAuthStore } from './stores/auth'
 
 const route     = useRoute()
 const router    = useRouter()
@@ -16,10 +16,10 @@ function logout() {
   router.push('/login')
 }
 
-function switchAccount(email) {
-  const ok = authStore.switchToDemo(email)
-  if (!ok) return
+async function switchAccount(acc) {
   showSwitcher.value = false
+  const ok = await authStore.login(acc.email, acc.password)
+  if (!ok) return
   router.push(authStore.user?.role === 'admin' ? '/admin' : '/dashboard')
 }
 
@@ -59,16 +59,16 @@ const isActive = (path) => route.path === path
       <div v-if="showSwitcher" class="switcher-popup">
         <p class="switcher-heading">Switch Demo Account</p>
         <div
-          v-for="acc in DEMO_ACCOUNTS"
+          v-for="acc in authStore.allDemoAccounts"
           :key="acc.email"
           class="switcher-row"
           :class="{ 'switcher-active': authStore.user?.email === acc.email }"
-          @click="switchAccount(acc.email)"
+          @click="switchAccount(acc)"
         >
           <div class="switcher-avatar">{{ acc.label.charAt(0) }}</div>
           <div class="switcher-info">
             <span>{{ acc.label }}</span>
-            <small>{{ acc.user.role }}</small>
+            <small>{{ acc.email }}</small>
           </div>
           <span v-if="authStore.user?.email === acc.email" class="switcher-check">✓</span>
         </div>
@@ -96,13 +96,13 @@ const isActive = (path) => route.path === path
           </button>
         </router-link>
 
-        <router-link to="/discover">
+        <router-link v-if="!authStore.isAdmin" to="/discover">
           <button :class="{ active: isActive('/discover') }">
             <i class="fa-solid fa-magnifying-glass"></i> Discover
           </button>
         </router-link>
 
-        <router-link to="/bookings">
+        <router-link v-if="!authStore.isAdmin" to="/bookings">
           <button :class="{ active: isActive('/bookings') }">
             <i class="fa-solid fa-calendar-check"></i> Bookings
           </button>
@@ -114,13 +114,13 @@ const isActive = (path) => route.path === path
           </button>
         </router-link>
 
-        <router-link to="/chat">
+        <router-link v-if="!authStore.isAdmin" to="/chat">
           <button :class="{ active: isActive('/chat') }">
             <i class="fa-solid fa-comments"></i> Messages
           </button>
         </router-link>
 
-        <router-link to="/wallet">
+        <router-link v-if="!authStore.isAdmin" to="/wallet">
           <button :class="{ active: isActive('/wallet') }">
             <i class="fa-solid fa-wallet"></i> Wallet
           </button>

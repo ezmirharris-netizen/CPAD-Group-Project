@@ -10,21 +10,6 @@ function load(key, fallback) {
   } catch { return fallback }
 }
 
-const DEMO_TUTEE_BOOKINGS = [
-  { id: 1, counterpart_name: 'Sarah Lim',  skill_name: 'Vue.js',      schedule_time: '2026-06-25 20:00:00', status: 'accepted',  price: 80 },
-  { id: 2, counterpart_name: 'Jason Tan',  skill_name: 'Mathematics', schedule_time: '2026-06-28 19:00:00', status: 'completed', price: 70 },
-  { id: 3, counterpart_name: 'John Tutor', skill_name: 'Java',        schedule_time: '2026-06-30 21:00:00', status: 'pending',   price: 70 },
-]
-const DEMO_TUTOR_BOOKINGS = [
-  { id: 10, counterpart_name: 'Demo Student', skill_name: 'Vue.js',   schedule_time: '2026-06-25 20:00:00', status: 'accepted',  price: 80 },
-  { id: 11, counterpart_name: 'Ali Ahmad',    skill_name: 'React.js', schedule_time: '2026-06-27 18:00:00', status: 'pending',   price: 75 },
-  { id: 12, counterpart_name: 'Priya Nair',   skill_name: 'Vue.js',   schedule_time: '2026-06-20 19:00:00', status: 'completed', price: 80 },
-]
-const DEMO_ADMIN_BOOKINGS = [
-  ...DEMO_TUTEE_BOOKINGS,
-  ...DEMO_TUTOR_BOOKINGS
-]
-
 function fmtDate(dt) {
   if (!dt) return ''
   const d = new Date(dt)
@@ -38,10 +23,9 @@ function normalise(list) {
 
 export const useBookingStore = defineStore('booking', {
   state: () => ({
-    bookings:       load('bookings', normalise(DEMO_TUTEE_BOOKINGS)),
+    bookings:       [],
     loading:        false,
     error:          null,
-    _demoLoaded:    true,
     paidBookingIds: load('paidBookingIds', [])
   }),
 
@@ -59,37 +43,38 @@ export const useBookingStore = defineStore('booking', {
       this.error   = null
       try {
         const res = await api.get('/bookings', { params: { role } })
-        if (Array.isArray(res.data) && res.data.length > 0) {
-          this.bookings    = res.data.map(b => ({ ...b, tutor: b.counterpart_name, subject: b.skill_name, date: fmtDate(b.schedule_time) }))
-          this._demoLoaded = false
-          this._persist()
-        }
-      } catch {
-        if (this._demoLoaded) {
-          const demo = role === 'tutor' ? DEMO_TUTOR_BOOKINGS : role === 'admin' ? DEMO_ADMIN_BOOKINGS : DEMO_TUTEE_BOOKINGS
-          const stored = load('bookings', null)
-          if (!stored) { this.bookings = normalise(demo); this._persist() }
-        }
+        const data = Array.isArray(res.data) ? res.data : []
+        this.bookings = normalise(data)
+        this._persist()
+      } catch (err) {
+        this.error = 'Could not load bookings.'
+        this.bookings = []
       } finally {
         this.loading = false
       }
     },
 
     async createBooking(data) {
-      const optimistic = {
-        id: null, tutor: data.tutor_name || 'Tutor', subject: data.skill_name || 'Session',
-        date: fmtDate(data.schedule_time), status: 'pending', price: data.price || 0,
-        schedule_time: data.schedule_time || '', counterpart_name: data.tutor_name || 'Tutor', skill_name: data.skill_name || 'Session'
-      }
       try {
         const res = await api.post('/bookings', data)
-        optimistic.id = res.data.booking_id ?? Date.now()
-      } catch { optimistic.id = Date.now() }
-
-      this.bookings.unshift(optimistic)
-      this._demoLoaded = false
-      this._persist()
-      return { success: true }
+        const newBooking = {
+          id:               res.data.booking_id ?? Date.now(),
+          tutor:            data.tutor_name || 'Tutor',
+          subject:          data.skill_name || 'Session',
+          date:             fmtDate(data.schedule_time),
+          status:           'pending',
+          price:            data.price || 0,
+          schedule_time:    data.schedule_time || '',
+          counterpart_name: data.tutor_name || 'Tutor',
+          skill_name:       data.skill_name || 'Session'
+        }
+        this.bookings.unshift(newBooking)
+        this._persist()
+        return { success: true }
+      } catch (err) {
+        this.error = err.response?.data?.error || 'Failed to create booking.'
+        return { success: false, error: this.error }
+      }
     },
 
     async updateStatus(id, status) {

@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore, DEMO_ACCOUNTS } from '../stores/auth'
+import { useAuthStore } from '../stores/auth'
 
 const router    = useRouter()
 const authStore = useAuthStore()
@@ -52,6 +52,7 @@ async function register() {
   }
   // New tutors → mandatory setup wall (profile page)
   if (registerForm.value.role === 'tutor') {
+    authStore.markTutorPending()
     const { useTutorStore } = await import('../stores/tutor.js')
     useTutorStore().addPendingTutor(authStore.user)
     router.push('/profile')
@@ -87,7 +88,7 @@ async function register() {
         Click to auto-fill
       </p>
       <div
-        v-for="acc in DEMO_ACCOUNTS"
+        v-for="acc in authStore.allDemoAccounts"
         :key="acc.email"
         @click="fillCredentials(acc)"
         style="
@@ -102,16 +103,8 @@ async function register() {
           {{ acc.label.charAt(0) }}
         </div>
         <div style="flex:1">
-          <span
-            class="badge"
-            :class="{
-              'badge-danger':  acc.user.role === 'admin',
-              'badge-warning': acc.user.role === 'tutor',
-              'badge-primary': acc.user.role === 'tutee'
-            }"
-            style="margin-right:6px"
-          >{{ acc.user.role }}</span>
           <span style="font-size:.83rem;font-weight:600">{{ acc.label }}</span>
+          <div style="font-size:.75rem;color:var(--text-muted)">{{ acc.email }}</div>
         </div>
         <code style="font-size:.78rem;color:var(--text-muted)">{{ acc.password }}</code>
       </div>
