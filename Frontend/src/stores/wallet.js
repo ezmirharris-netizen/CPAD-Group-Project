@@ -14,8 +14,12 @@ function currentUserId() {
   }
 }
 
+function storageKeyFor(userId) {
+  return `ss_wallet_${userId}`
+}
+
 function storageKey() {
-  return `ss_wallet_${currentUserId()}`
+  return storageKeyFor(currentUserId())
 }
 
 function save(data) {
@@ -29,6 +33,21 @@ function load(key, fallback) {
   } catch { return fallback }
 }
 
+// Same as save()/load() above, but for an EXPLICIT account id rather than
+// "whoever is currently logged in". Needed because paying for a booking
+// has to credit the TUTOR's wallet even though the TUTEE is the one who
+// is logged in and triggering the payment.
+function loadForUser(userId, key, fallback) {
+  try {
+    const s = localStorage.getItem(storageKeyFor(userId))
+    if (!s || s === 'undefined') return fallback
+    return JSON.parse(s)?.[key] ?? fallback
+  } catch { return fallback }
+}
+function saveForUser(userId, data) {
+  try { localStorage.setItem(storageKeyFor(userId), JSON.stringify(data)) } catch (e) {}
+}
+
 const DEFAULT_TXS = [
   { id: 1, title: 'Top-up', amount: '+RM240', type: 'income', date: '2026-06-01' },
   { id: 2, title: 'Vue.js Tutoring Session', amount: '-RM45', type: 'expense', date: '2026-06-10' }
@@ -40,7 +59,7 @@ function freshState() {
     transactions:       load('transactions', DEFAULT_TXS),
     pendingPayments:    load('pendingPayments', []),
     tutorTotalEarnings: load('tutorTotalEarnings', 0),
-    tutorBalance:       load('tutorBalance', 0),
+    tutorBalance:       load('tutorBalance', 100), // <-- CHANGED FROM 0 TO 100 AS THE DEFAULT BASE AMOUNT
     tutorTransactions:  load('tutorTransactions', [])
   }
 }
@@ -67,16 +86,12 @@ export const useWalletStore = defineStore('wallet', {
     },
 
     // Re-read wallet data for whichever account is currently logged in.
-    // Call this right after login/register/logout so each account always
-    // shows its own balance/history instead of whatever was last held in
-    // memory for a previous account.
     reload() {
       Object.assign(this, freshState())
     },
 
     // One-time RM50 sign-up bonus for a brand-new account. Only call this
-    // immediately after a successful registration — calling it again later
-    // (e.g. on every login) would re-grant the bonus.
+    // immediately after a successful registration
     grantSignupBonus(amount = 50) {
       const today = new Date().toISOString().slice(0, 10)
       this.balance = amount
@@ -85,8 +100,10 @@ export const useWalletStore = defineStore('wallet', {
       ]
       this.pendingPayments    = []
       this.tutorTotalEarnings = 0
-      this.tutorBalance       = 0
-      this.tutorTransactions  = []
+      this.tutorBalance       = 100 // <-- CHANGED FROM 0 TO 100 TO SEED THE BASE WALLET AMOUNT ON SIGNUP
+      this.tutorTransactions  = [
+        { id: Date.now() + 5, title: 'Base Tutor Wallet Setup', amount: '+RM100', type: 'income', date: today } // Optional visual entry log
+      ]
       this._persist()
     },
 
@@ -109,6 +126,7 @@ export const useWalletStore = defineStore('wallet', {
       const subject = booking.subject || 'Session'
       const today   = new Date().toISOString().slice(0, 10)
 
+      // ── Tutee side ──
       this.pendingPayments = this.pendingPayments.filter(p => p.bookingId !== booking.id)
 
       if (this.balance >= amount) {
@@ -122,12 +140,42 @@ export const useWalletStore = defineStore('wallet', {
         }
       }
 
-      const tutorCut = +((amount * 0.9).toFixed(2))
-      this.tutorTotalEarnings = +((this.tutorTotalEarnings + amount).toFixed(2))
-      this.tutorBalance       = +((this.tutorBalance + tutorCut).toFixed(2))
-      this.tutorTransactions.unshift({ id: Date.now() + 1, title: `Payment received: ${subject}`, amount: `+RM${tutorCut}`, type: 'income', date: today })
-
       this._persist()
+
+      // ── Tutor side ──
+      const tutorId = booking.tutor_id
+      if (tutorId == null) return
+
+      const tutorCut = +((amount * 0.9).toFixed(2))   // Platform Fee (10%) taken from earnings
+      // REMOVED: flat bonus logic from here
+
+      const tutorWallet = {
+        balance:            loadForUser(tutorId, 'balance', 240),
+        transactions:       loadForUser(tutorId, 'transactions', DEFAULT_TXS),
+        pendingPayments:    loadForUser(tutorId, 'pendingPayments', []),
+        tutorTotalEarnings: loadForUser(tutorId, 'tutorTotalEarnings', 0),
+        tutorBalance:       loadForUser(tutorId, 'tutorBalance', 100), // <-- ENSURED FALLBACK MATCHES 100 BASE
+        tutorTransactions:  loadForUser(tutorId, 'tutorTransactions', [])
+      }
+
+      // Teaching earnings increase by the full tuition fee paid by the tutee.
+      tutorWallet.tutorTotalEarnings = +((tutorWallet.tutorTotalEarnings + amount).toFixed(2))
+
+      // Available balance gets JUST the 90% cut. (No bonus added on top here)
+      tutorWallet.tutorBalance = +((tutorWallet.tutorBalance + tutorCut).toFixed(2))
+
+      tutorWallet.tutorTransactions = [
+        { id: Date.now() + 1, title: `Payment received: ${subject}`, amount: `+RM${tutorCut}`, type: 'income', date: today },
+        ...tutorWallet.tutorTransactions
+      ]
+
+      saveForUser(tutorId, tutorWallet)
+
+      if (String(tutorId) === String(currentUserId())) {
+        this.tutorTotalEarnings = tutorWallet.tutorTotalEarnings
+        this.tutorBalance       = tutorWallet.tutorBalance
+        this.tutorTransactions  = tutorWallet.tutorTransactions
+      }
     },
 
     topUp(amount) {
