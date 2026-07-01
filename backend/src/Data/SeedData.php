@@ -33,18 +33,18 @@ final class SeedData
 
         // ── Users ──────────────────────────────────────────────
         $insertUser = $this->pdo->prepare(
-            'INSERT INTO `users` (name, email, password_hash, faculty, photo_url, role, bio) VALUES (?,?,?,?,?,?,?)'
+            'INSERT INTO `users` (name, email, password_hash, faculty, course, year, photo_url, role, bio) VALUES (?,?,?,?,?,?,?,?,?)'
         );
         $users = [
-            ['System Admin',  'admin@skillswap.com',   $hashAdmin, 'Administration',         '', 'admin', 'Platform administrator.'],
-            ['Sarah Lim',     'sarah@skillswap.com',   $hash456,   'Faculty of Computing',   '', 'tutor', 'Passionate Vue.js & web dev tutor with 3 years experience.'],
-            ['Jason Tan',     'jason@skillswap.com',   $hash123,   'Faculty of Engineering', '', 'tutor', 'Mathematics tutor specialising in calculus and linear algebra.'],
-            ['Nur Aina',      'nuraina@skillswap.com', $hash123,   'Faculty of Science',     '', 'tutor', 'Chemistry and biology tutor, love making science fun.'],
-            ['Alicia Wong',   'alicia@skillswap.com',  $hash123,   'Faculty of Business',    '', 'tutor', 'Accounting & finance tutor helping students ace their exams.'],
-            ['John Tutor',    'tutor@skillswap.com',   $hash456,   'Faculty of Computing',   '', 'tutor', 'Full-stack developer teaching Java, Python and Data Structures.'],
-            ['Demo Student',  'demo@skillswap.com',    $hash123,   'Faculty of Computing',   '', 'tutee', null],
-            ['Ali Ahmad',     'ali@skillswap.com',     $hash123,   'Faculty of Engineering', '', 'tutee', null],
-            ['Priya Nair',    'priya@skillswap.com',   $hash123,   'Faculty of Science',     '', 'tutee', null],
+            ['System Admin',  'admin@skillswap.com',   $hashAdmin, 'Administration',         '',                        null, '', 'admin', 'Platform administrator.'],
+            ['Sarah Lim',     'sarah@skillswap.com',   $hash456,   'Faculty of Computing',   'Software Engineering',    4,    '', 'tutor', 'Passionate Vue.js & web dev tutor with 3 years experience.'],
+            ['Jason Tan',     'jason@skillswap.com',   $hash123,   'Faculty of Engineering', 'Mechanical Engineering',  3,    '', 'tutor', 'Mathematics tutor specialising in calculus and linear algebra.'],
+            ['Nur Aina',      'nuraina@skillswap.com', $hash123,   'Faculty of Science',     'Biochemistry',            3,    '', 'tutor', 'Chemistry and biology tutor, love making science fun.'],
+            ['Alicia Wong',   'alicia@skillswap.com',  $hash123,   'Faculty of Business',    'Accounting & Finance',    4,    '', 'tutor', 'Accounting & finance tutor helping students ace their exams.'],
+            ['John Tutor',    'tutor@skillswap.com',   $hash456,   'Faculty of Computing',   'Computer Science',        4,    '', 'tutor', 'Full-stack developer teaching Java, Python and Data Structures.'],
+            ['Demo Student',  'demo@skillswap.com',    $hash123,   'Faculty of Computing',   'Computer Science',        2,    '', 'tutee', null],
+            ['Ali Ahmad',     'ali@skillswap.com',     $hash123,   'Faculty of Engineering', 'Civil Engineering',       1,    '', 'tutee', null],
+            ['Priya Nair',    'priya@skillswap.com',   $hash123,   'Faculty of Science',     'Biology',                 2,    '', 'tutee', null],
         ];
         foreach ($users as $u) $insertUser->execute($u);
 
