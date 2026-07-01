@@ -10,3 +10,13 @@ vendor/
 .env
 .env.local
 .env.*.local
+.env.production
+Frontend/.env .production
+
+# Capacitor / Android generated & build output
+Frontend/android/app/build/
+Frontend/android/local.properties
+Frontend/dist/
+Frontend/android/.gradle/
+Frontend/android/.idea/
+Frontend/android/capacitor-cordova-android-plugins/

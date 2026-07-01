@@ -136,10 +136,10 @@ export const useBookingStore = defineStore('booking', {
       if (!booking) return
       booking.status = status
 
-      if (status === 'accepted') {
-        const { useWalletStore } = await import('./wallet.js')
-        useWalletStore().addPendingPayment(booking)
-      }
+    if (status === 'accepted') {
+      const { useWalletStore } = await import('./wallet.js')
+      useWalletStore().addPendingPaymentForUser(booking.learner_id, booking)
+    }
 
       this._persist()
       try { await api.patch(`/bookings/${id}/status`, { status }) } catch {}

@@ -119,6 +119,45 @@ export const useWalletStore = defineStore('wallet', {
       this._persist()
     },
 
+    // Same as addPendingPayment(), but for an EXPLICIT account id rather
+// than "whoever is currently logged in". Needed because a booking gets
+// accepted by the TUTOR, but it's the TUTEE who owes the payment and
+// should see it show up in their own wallet's pending section.
+addPendingPaymentForUser(userId, booking) {
+  if (userId == null) return
+
+  const tuteeWallet = {
+    balance:            loadForUser(userId, 'balance', 240),
+    transactions:       loadForUser(userId, 'transactions', DEFAULT_TXS),
+    pendingPayments:    loadForUser(userId, 'pendingPayments', []),
+    tutorTotalEarnings: loadForUser(userId, 'tutorTotalEarnings', 0),
+    tutorBalance:       loadForUser(userId, 'tutorBalance', 100),
+    tutorTransactions:  loadForUser(userId, 'tutorTransactions', [])
+  }
+
+  if (tuteeWallet.pendingPayments.some(p => p.bookingId === booking.id)) return
+
+  tuteeWallet.pendingPayments = [
+    ...tuteeWallet.pendingPayments,
+    {
+      id:        Date.now(),
+      bookingId: booking.id,
+      title:     `${booking.subject || booking.skill_name || 'Session'} — ${booking.tutor || booking.counterpart_name || 'Tutor'}`,
+      amount:    Number(booking.price) || 0,
+      date:      new Date().toISOString().slice(0, 10)
+    }
+  ]
+
+  saveForUser(userId, tuteeWallet)
+
+  // If the tutee happens to be the currently logged-in account (e.g.
+  // testing both sides in the same browser), keep in-memory state in
+  // sync too so the UI updates without needing a reload.
+  if (String(userId) === String(currentUserId())) {
+    this.pendingPayments = tuteeWallet.pendingPayments
+  }
+},
+
     deductForBooking(booking) {
       const amount = Number(booking.price) || 0
       if (amount <= 0) return
