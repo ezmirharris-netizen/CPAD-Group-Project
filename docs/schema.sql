@@ -4,13 +4,9 @@
 -- foreign key names to avoid duplicate constraint errors.
 -- ============================================================
 
-DROP DATABASE IF EXISTS `SkillSwap`;
-
-CREATE DATABASE `SkillSwap`
-CHARACTER SET utf8mb4
-COLLATE utf8mb4_unicode_ci;
-
-USE `SkillSwap`;
+-- NOTE: this script now runs against whichever database you already
+-- have selected in HeidiSQL (e.g. Railway's default  database)
+-- instead of forcing everything into a database called SkillSwap.
 
 -- ============================================================
 -- USERS
