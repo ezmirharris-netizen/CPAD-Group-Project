@@ -23,6 +23,30 @@ function load(key, fallback) {
   } catch { return fallback }
 }
 
+// Same as save()/load() above, but for an EXPLICIT account id rather than
+// "whoever is currently logged in". Needed because paying for a booking (or
+// a tutor adding a meeting link) has to be visible on the OTHER party's
+// account too, even though only one of them is logged in/acting right now.
+function storageKeyFor(userId) { return `ss_bookings_${userId}` }
+
+function loadForUser(userId, key, fallback) {
+  try {
+    const s = localStorage.getItem(storageKeyFor(userId))
+    if (!s || s === 'undefined') return fallback
+    return JSON.parse(s)?.[key] ?? fallback
+  } catch { return fallback }
+}
+
+function saveForUser(userId, patch) {
+  try {
+    const key = storageKeyFor(userId)
+    const raw = localStorage.getItem(key)
+    let existing = {}
+    try { existing = raw && raw !== 'undefined' ? JSON.parse(raw) : {} } catch { existing = {} }
+    localStorage.setItem(key, JSON.stringify({ ...existing, ...patch }))
+  } catch (e) {}
+}
+
 function fmtDate(dt) {
   if (!dt) return ''
   const d = new Date(dt)
@@ -40,7 +64,11 @@ export const useBookingStore = defineStore('booking', {
     loading:        false,
     error:          null,
     paidBookingIds: load('paidBookingIds', []),
-    recordingLinks: load('recordingLinks', {})
+    recordingLinks: load('recordingLinks', {}),
+    // Online meeting link for an upcoming/ongoing session — set by the
+    // tutor once the tutee has paid, visible to both sides. Distinct from
+    // recordingLinks, which are added *after* a session is completed.
+    meetingLinks:   load('meetingLinks', {})
   }),
 
   getters: {
@@ -52,7 +80,8 @@ export const useBookingStore = defineStore('booking', {
       save({
         bookings:       this.bookings,
         paidBookingIds: this.paidBookingIds,
-        recordingLinks: this.recordingLinks
+        recordingLinks: this.recordingLinks,
+        meetingLinks:   this.meetingLinks
       })
     },
 
@@ -60,6 +89,8 @@ export const useBookingStore = defineStore('booking', {
     // logged in. Call after login/register/logout.
     reload() {
       this.paidBookingIds = load('paidBookingIds', [])
+      this.recordingLinks = load('recordingLinks', {})
+      this.meetingLinks   = load('meetingLinks', {})
       this.bookings = []
     },
 
@@ -154,6 +185,18 @@ export const useBookingStore = defineStore('booking', {
 
       this.paidBookingIds.push(id)
       this._persist()
+
+      // Mirror the paid flag into the TUTOR's own locally-cached booking
+      // data, so if the tutor's account is opened in this browser it shows
+      // the session as paid straight away instead of "Awaiting tutee payment".
+      const tutorId = booking.tutor_id
+      if (tutorId != null && String(tutorId) !== String(currentUserId())) {
+        const tutorPaidIds = loadForUser(tutorId, 'paidBookingIds', [])
+        if (!tutorPaidIds.includes(id)) {
+          saveForUser(tutorId, { paidBookingIds: [...tutorPaidIds, id] })
+        }
+      }
+
       try { await api.patch(`/bookings/${id}/status`, { status: 'paid' }) } catch {}
     },
 
@@ -189,6 +232,37 @@ export const useBookingStore = defineStore('booking', {
       delete next[id]
       this.recordingLinks = next
       this._persist()
+    },
+
+    // ── Online meeting link — set by the tutor once the tutee has paid,
+    // visible to both sides. Mirrored into the tutee's local cache so it
+    // shows up immediately if that account is opened in this browser. ────
+    setMeetingLink(booking, url) {
+      if (!booking || !url) return
+      this.meetingLinks = { ...this.meetingLinks, [booking.id]: url }
+      this._persist()
+
+      const learnerId = booking.learner_id
+      if (learnerId != null && String(learnerId) !== String(currentUserId())) {
+        const learnerLinks = loadForUser(learnerId, 'meetingLinks', {})
+        saveForUser(learnerId, { meetingLinks: { ...learnerLinks, [booking.id]: url } })
+      }
+    },
+
+    removeMeetingLink(booking) {
+      if (!booking) return
+      const next = { ...this.meetingLinks }
+      delete next[booking.id]
+      this.meetingLinks = next
+      this._persist()
+
+      const learnerId = booking.learner_id
+      if (learnerId != null && String(learnerId) !== String(currentUserId())) {
+        const learnerLinks = loadForUser(learnerId, 'meetingLinks', {})
+        const nextLearner = { ...learnerLinks }
+        delete nextLearner[booking.id]
+        saveForUser(learnerId, { meetingLinks: nextLearner })
+      }
     }
   }
 })

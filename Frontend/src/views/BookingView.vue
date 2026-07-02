@@ -129,6 +129,36 @@ function removeLink(booking) {
   if (!authStore.isTutor) return
   bookingStore.removeRecordingLink(booking.id)
 }
+
+// ── Online Meeting Link — shown once the tutee has paid. Tutor adds/edits
+// it, tutee sees it read-only. ───────────────────────────────────────────
+const meetingLinkDrafts = ref({}) // bookingId -> draft text while editing
+
+function startEditMeetingLink(booking) {
+  if (!isMyTutorBooking(booking)) return
+  meetingLinkDrafts.value[booking.id] = bookingStore.meetingLinks[booking.id] || ''
+}
+function cancelEditMeetingLink(booking) {
+  delete meetingLinkDrafts.value[booking.id]
+}
+function saveMeetingLink(booking) {
+  if (!isMyTutorBooking(booking)) return
+  const url = (meetingLinkDrafts.value[booking.id] || '').trim()
+  if (!url) return
+  bookingStore.setMeetingLink(booking, url)
+  delete meetingLinkDrafts.value[booking.id]
+}
+function removeMeetingLink(booking) {
+  if (!isMyTutorBooking(booking)) return
+  bookingStore.removeMeetingLink(booking)
+}
+
+// Badge label: once an accepted booking has been paid, show "paid" instead
+// of "accepted" so both tutor and tutee see the up-to-date status at a glance.
+function displayStatus(booking) {
+  if (booking.status === 'accepted' && bookingStore.isPaid(booking.id)) return 'paid'
+  return booking.status
+}
 </script>
 
 <template>
@@ -168,6 +198,7 @@ function removeLink(booking) {
       class="card booking-item"
       :class="booking.status"
     >
+      <div class="booking-row">
       <div class="booking-info">
         <h3>{{ booking.subject }}</h3>
         <p>{{ isMyTutorBooking(booking) ? '👨‍🎓' : '👨‍🏫' }} {{ booking.tutor }}</p>
@@ -179,13 +210,13 @@ function removeLink(booking) {
         <span
           class="badge"
           :class="{
-            'badge-primary': booking.status === 'pending',
-            'badge-warning': booking.status === 'accepted',
-            'badge-success': booking.status === 'completed',
-            'badge-danger':  booking.status === 'declined'
+            'badge-primary': displayStatus(booking) === 'pending',
+            'badge-warning': displayStatus(booking) === 'accepted',
+            'badge-success': displayStatus(booking) === 'completed' || displayStatus(booking) === 'paid',
+            'badge-danger':  displayStatus(booking) === 'declined'
           }"
         >
-          {{ booking.status }}
+          {{ displayStatus(booking) }}
         </span>
 
         <!-- ── TUTOR (current user is the tutor on this booking) ──────── -->
@@ -244,13 +275,6 @@ function removeLink(booking) {
           </button>
 
           <!-- Accepted + Paid: Step 2 — Complete Session -->
-          <span
-            v-if="booking.status === 'accepted' && bookingStore.isPaid(booking.id)"
-            class="badge badge-success"
-            style="margin-right:8px"
-          >
-            ✓ Paid
-          </span>
           <button
             v-if="booking.status === 'accepted' && bookingStore.isPaid(booking.id)"
             @click="completeSession(booking)"
@@ -259,6 +283,73 @@ function removeLink(booking) {
           </button>
         </template>
 
+      </div>
+      </div>
+
+      <!-- ── ONLINE MEETING LINK — shown once the tutee has paid ─────── -->
+      <div
+        v-if="booking.status === 'accepted' && bookingStore.isPaid(booking.id)"
+        class="meeting-link-box"
+      >
+        <div class="meeting-link-header">
+          <i class="fa-solid fa-video"></i>
+          <span>Online Meeting</span>
+        </div>
+
+        <!-- TUTOR: add / edit / remove the link -->
+        <template v-if="isMyTutorBooking(booking)">
+          <div v-if="meetingLinkDrafts[booking.id] !== undefined" class="meeting-link-edit">
+            <input
+              v-model="meetingLinkDrafts[booking.id]"
+              type="url"
+              placeholder="Paste meeting link (e.g. Zoom, Google Meet)..."
+              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem"
+            >
+            <div class="meeting-link-actions">
+              <button style="padding:8px 16px;font-size:.85rem" @click="saveMeetingLink(booking)">Save</button>
+              <button class="btn-outline" style="padding:8px 16px;font-size:.85rem" @click="cancelEditMeetingLink(booking)">Cancel</button>
+            </div>
+          </div>
+          <div v-else class="meeting-link-view">
+            <a
+              v-if="bookingStore.meetingLinks[booking.id]"
+              :href="bookingStore.meetingLinks[booking.id]"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="recording-link"
+            >
+              <i class="fa-solid fa-link"></i> {{ bookingStore.meetingLinks[booking.id] }}
+            </a>
+            <p v-else class="muted-sm">No meeting link added yet — add one so your tutee can join.</p>
+            <div class="meeting-link-actions">
+              <button class="btn-outline" style="padding:8px 16px;font-size:.85rem" @click="startEditMeetingLink(booking)">
+                {{ bookingStore.meetingLinks[booking.id] ? '✎ Edit Link' : '+ Add Link' }}
+              </button>
+              <button
+                v-if="bookingStore.meetingLinks[booking.id]"
+                class="btn-outline"
+                style="padding:8px 16px;font-size:.85rem;color:var(--danger);border-color:var(--danger)"
+                @click="removeMeetingLink(booking)"
+              >
+                ✕ Remove
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <!-- TUTEE: view-only -->
+        <template v-else>
+          <a
+            v-if="bookingStore.meetingLinks[booking.id]"
+            :href="bookingStore.meetingLinks[booking.id]"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="recording-link"
+          >
+            <i class="fa-solid fa-link"></i> {{ bookingStore.meetingLinks[booking.id] }}
+          </a>
+          <p v-else class="muted-sm">Your tutor hasn't added a meeting link yet. Check back soon.</p>
+        </template>
       </div>
     </div>
   </div>
@@ -436,6 +527,27 @@ function removeLink(booking) {
   color: #f59e0b;
   transform: scale(1.15);
 }
+
+/* ── Booking card layout (row + optional meeting-link block below) ── */
+.booking-item { flex-direction: column; align-items: stretch; gap: 14px; }
+.booking-row {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 14px; flex-wrap: wrap;
+}
+
+.meeting-link-box {
+  border-top: 1px dashed var(--border);
+  padding-top: 14px;
+}
+.meeting-link-header {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.8rem; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+.meeting-link-view { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.meeting-link-edit { display: flex; flex-direction: column; gap: 10px; }
+.meeting-link-actions { display: flex; gap: 8px; }
 
 /* ── Recorded Session Uploads ── */
 .section-header {
