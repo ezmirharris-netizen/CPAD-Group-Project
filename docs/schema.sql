@@ -7,6 +7,25 @@
 -- NOTE: this script now runs against whichever database you already
 -- have selected in HeidiSQL (e.g. Railway's default  database)
 -- instead of forcing everything into a database called SkillSwap.
+--
+-- This file is safe to run over and over: it drops the tables
+-- first (if they exist) and recreates + reseeds everything from
+-- scratch. Just run this whole file whenever you want to reset
+-- the database to a clean, working state.
+
+-- ============================================================
+-- DROP EXISTING TABLES (children first, respecting foreign keys)
+-- ============================================================
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS `audit_log`;
+DROP TABLE IF EXISTS `content_reports`;
+DROP TABLE IF EXISTS `messages`;
+DROP TABLE IF EXISTS `reviews`;
+DROP TABLE IF EXISTS `bookings`;
+DROP TABLE IF EXISTS `user_skills`;
+DROP TABLE IF EXISTS `skills`;
+DROP TABLE IF EXISTS `users`;
+SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================
 -- USERS
@@ -196,123 +215,132 @@ CREATE TABLE `audit_log` (
 
 -- ============================================================
 -- SAMPLE DATA
+-- These match the demo accounts hardcoded in the frontend
+-- (Frontend/src/stores/auth.js -> demo account switcher), so
+-- logging in with them works immediately after running this
+-- script — no separate /api/seed call needed.
+--
+--   admin@skillswap.com   / admin123     (admin)
+--   sarah@skillswap.com   / 123456       (tutor)
+--   tutor@skillswap.com   / 123456       (tutor)
+--   demo@skillswap.com    / password123  (tutee)
+--
+-- Password hashes below are real bcrypt hashes (PASSWORD_BCRYPT
+-- compatible) generated for the plaintext passwords above, so
+-- password_verify() in AuthController will work out of the box.
 -- ============================================================
 
 INSERT INTO `users`
-(`name`, `email`, `password_hash`, `faculty`,
+(`name`, `email`, `password_hash`, `faculty`, `course`, `year`,
  `photo_url`, `role`, `bio`)
 VALUES
-('Aisha Rahman','aisha.rahman@example.edu',
-'$2y$10$placeholderhash000000000000000000000000000000000001',
-'Faculty of Computer Science',
-'https://example.com/photos/aisha.jpg',
-'admin',
-'Platform administrator and CS lecturer.'),
+('System Admin','admin@skillswap.com',
+'$2y$12$JNP9XRU9oOeYVHdyJfAg8OVqlUAoq6eD9AWfZH0wKbg2K9vezOcN2',
+'Administration','',NULL,'','admin',
+'Platform administrator.'),
 
-('Daniel Lim','daniel.lim@example.edu',
-'$2y$10$placeholderhash000000000000000000000000000000000002',
-'Faculty of Computer Science',
-'https://example.com/photos/daniel.jpg',
-'tutor',
-'Final-year CS student specializing in web development.'),
+('Sarah Lim','sarah@skillswap.com',
+'$2y$12$VqVnYW7HEVkpfJcAy.ZjbO.sCYOOmZtYfaYpYerxv.atxVLZkM7Jm',
+'Faculty of Computing','Software Engineering',4,'','tutor',
+'Passionate Vue.js & web dev tutor with 3 years experience.'),
 
-('Priya Nair','priya.nair@example.edu',
-'$2y$10$placeholderhash000000000000000000000000000000000003',
-'Faculty of Mathematics',
-'https://example.com/photos/priya.jpg',
-'tutor',
-'Math tutor with a passion for calculus and statistics.'),
+('Jason Tan','jason@skillswap.com',
+'$2y$12$HLQGo/9VCPDaDiRwiXpjBuMOtaO7oYOmZ8HBcaCnRuUqyKa9Rm2Y.',
+'Faculty of Engineering','Mechanical Engineering',3,'','tutor',
+'Mathematics tutor specialising in calculus and linear algebra.'),
 
-('Wei Cheng','wei.cheng@example.edu',
-'$2y$10$placeholderhash000000000000000000000000000000000004',
-'Faculty of Languages',
-'https://example.com/photos/wei.jpg',
-'tutor',
-'Native Mandarin speaker offering conversational practice.'),
+('Nur Aina','nuraina@skillswap.com',
+'$2y$12$HLQGo/9VCPDaDiRwiXpjBuMOtaO7oYOmZ8HBcaCnRuUqyKa9Rm2Y.',
+'Faculty of Science','Biochemistry',3,'','tutor',
+'Chemistry and biology tutor, love making science fun.'),
 
-('Sofia Hernandez','sofia.hernandez@example.edu',
-'$2y$10$placeholderhash000000000000000000000000000000000005',
-'Faculty of Fine Arts',
-'https://example.com/photos/sofia.jpg',
-'tutor',
-'Guitar and music theory tutor, 5 years teaching experience.'),
+('Alicia Wong','alicia@skillswap.com',
+'$2y$12$HLQGo/9VCPDaDiRwiXpjBuMOtaO7oYOmZ8HBcaCnRuUqyKa9Rm2Y.',
+'Faculty of Business','Accounting & Finance',4,'','tutor',
+'Accounting & finance tutor helping students ace their exams.'),
 
-('Marcus Tan','marcus.tan@example.edu',
-'$2y$10$placeholderhash000000000000000000000000000000000006',
-'Faculty of Computer Science',
-'',
-'tutee',
-'Learning to code, interested in frontend development.'),
+('John Tutor','tutor@skillswap.com',
+'$2y$12$qIb.q1aSytWoDh5AIH2KnOfvy8jPajWSNnXiuBxLz7AtUONeTX1KW',
+'Faculty of Computing','Computer Science',4,'','tutor',
+'Full-stack developer teaching Java, Python and Data Structures.'),
 
-('Nur Aina','nur.aina@example.edu',
-'$2y$10$placeholderhash000000000000000000000000000000000007',
-'Faculty of Business',
-'',
-'tutee',
-'Looking to improve my public speaking and Spanish.'),
+('Demo Student','demo@skillswap.com',
+'$2y$12$HLQGo/9VCPDaDiRwiXpjBuMOtaO7oYOmZ8HBcaCnRuUqyKa9Rm2Y.',
+'Faculty of Computing','Computer Science',2,'','tutee',
+NULL),
 
-('James O''Brien','james.obrien@example.edu',
-'$2y$10$placeholderhash000000000000000000000000000000000008',
-'Faculty of Engineering',
-'',
-'tutee',
-'Want to pick up guitar as a hobby.');
+('Ali Ahmad','ali@skillswap.com',
+'$2y$12$HLQGo/9VCPDaDiRwiXpjBuMOtaO7oYOmZ8HBcaCnRuUqyKa9Rm2Y.',
+'Faculty of Engineering','Civil Engineering',1,'','tutee',
+NULL),
+
+('Priya Nair','priya@skillswap.com',
+'$2y$12$HLQGo/9VCPDaDiRwiXpjBuMOtaO7oYOmZ8HBcaCnRuUqyKa9Rm2Y.',
+'Faculty of Science','Biology',2,'','tutee',
+NULL);
 
 INSERT INTO `skills` (`name`, `category`) VALUES
-('Web Development','Technology'),
-('Python Programming','Technology'),
-('Calculus','Mathematics'),
-('Statistics','Mathematics'),
-('Mandarin Conversation','Language'),
-('Spanish Conversation','Language'),
-('Guitar Lessons','Music'),
-('Music Theory','Music');
+('Vue.js','Web Development'),
+('React.js','Web Development'),
+('Mathematics','Science'),
+('Chemistry','Science'),
+('Accounting','Business'),
+('Java','Programming'),
+('Python','Programming'),
+('Data Structures','Programming'),
+('Database Design','Computing'),
+('Linear Algebra','Mathematics');
 
 INSERT INTO `user_skills`
 (`user_id`,`skill_id`,`hourly_rate`,`level`)
 VALUES
-(2,1,25.00,'Advanced'),
-(2,2,20.00,'Intermediate'),
-(3,3,18.00,'Expert'),
-(3,4,18.00,'Advanced'),
-(4,5,15.00,'Expert'),
-(5,7,22.00,'Advanced'),
-(5,8,20.00,'Intermediate');
+(2,1,40.00,'Advanced'),
+(2,2,40.00,'Advanced'),
+(3,3,35.00,'Advanced'),
+(3,10,35.00,'Advanced'),
+(4,4,50.00,'Expert'),
+(5,5,60.00,'Expert'),
+(6,6,35.00,'Advanced'),
+(6,7,35.00,'Advanced'),
+(6,8,35.00,'Advanced'),
+(6,9,35.00,'Advanced');
 
 INSERT INTO `bookings`
 (`learner_id`,`tutor_id`,`skill_id`,
 `schedule_time`,`status`,`price`)
 VALUES
-(6,2,1,'2026-07-05 14:00:00','accepted',25.00),
-(7,4,5,'2026-07-06 10:00:00','completed',15.00),
-(8,5,7,'2026-07-08 16:30:00','pending',22.00),
-(6,3,3,'2026-06-20 09:00:00','completed',18.00),
-(7,3,4,'2026-06-15 11:00:00','declined',18.00);
+(7,2,1,'2026-06-25 20:00:00','accepted',80.00),
+(7,3,3,'2026-06-28 19:00:00','completed',70.00),
+(7,6,6,'2026-06-30 21:00:00','pending',70.00),
+(8,4,4,'2026-06-26 18:00:00','accepted',100.00),
+(9,5,5,'2026-06-27 15:00:00','completed',120.00);
 
 INSERT INTO `reviews`
 (`booking_id`,`rating`,`comment`)
 VALUES
-(2,5,'Wei was patient and made conversational practice fun and easy to follow.'),
-(4,4,'Priya explained calculus concepts clearly, would book again.');
+(2,5,'Jason explained calculus so clearly. Highly recommend!'),
+(5,5,'Alicia is an excellent accounting tutor. Very patient.');
 
 INSERT INTO `messages`
 (`sender_id`,`receiver_id`,`body`,`sent_at`)
 VALUES
-(6,2,'Hi Daniel, is the 2pm slot on Friday still available for the web dev session?','2026-07-01 09:15:00'),
-(2,6,'Yes, that works for me. See you then!','2026-07-01 09:20:00'),
-(7,4,'Thank you for the great Mandarin session yesterday!','2026-07-07 08:00:00'),
-(8,5,'Hi Sofia, looking forward to my first guitar lesson next week.','2026-07-02 19:45:00');
+(7,2,'Hi Sarah! Is your Vue.js session still available?','2026-07-01 09:00:00'),
+(2,7,'Yes! I have slots on Thursday 8PM. Does that work?','2026-07-01 09:05:00'),
+(7,2,'Perfect, I will book that slot. Thanks!','2026-07-01 09:07:00'),
+(7,6,'Hello John, I need help with Data Structures for my exam.','2026-07-01 10:00:00'),
+(6,7,'Sure! I can help. When are you free?','2026-07-01 10:05:00'),
+(7,6,'How about this Friday at 9PM?','2026-07-01 10:07:00');
 
 INSERT INTO `content_reports`
 (`content_type`,`content_id`,`title`,`reported_by`,`reason`,`status`)
 VALUES
-('message',3,'Inappropriate language in chat',6,'Used offensive language towards tutor','pending'),
-('review',1,'Suspicious 5-star review','7','Possible fake review, no real session took place','pending'),
-('profile',4,'Misleading bio claims',8,'Tutor bio claims credentials that cannot be verified','resolved');
+('message',1,'Inappropriate language in chat',8,'Used offensive language towards a tutor.','pending'),
+('review',1,'Suspicious 5-star review',7,'Possible fake review, no real session took place.','pending'),
+('profile',4,'Misleading bio claims',9,'Profile claims credentials that cannot be verified.','resolved');
 
 INSERT INTO `audit_log`
 (`admin_id`,`action`,`target_type`,`target_id`,`details`)
 VALUES
-(1,'User Suspended','user',6,'Suspended after repeated content report.'),
-(1,'Report Resolved','content_report',3,'Reviewed bio claim, tutor provided certificate, marked resolved.'),
-(1,'Tutor Approved','user',4,'Approved Wei Cheng as a tutor after document check.');
+(1,'User Suspended','user',7,'Suspended after repeated content report.'),
+(1,'Report Resolved','content_report',3,'Reviewed bio claim, tutor provided certificate.'),
+(1,'Tutor Approved','user',2,'Approved Sarah Lim as a tutor after document check.');
