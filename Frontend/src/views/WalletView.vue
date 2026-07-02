@@ -512,7 +512,7 @@ const adminPendingAmount = computed(() =>
               <i class="fa-solid fa-spinner fa-spin"></i> Processing…
             </template>
             <template v-else>
-              Proceed with Payment (skipped the authentication process for bank and touchNgo)
+              Proceed with Payment
             </template>
           </button>
         </div>
@@ -575,6 +575,13 @@ const adminPendingAmount = computed(() =>
   color: var(--text-muted);
 }
 .topup-summary-row strong { color: var(--text-main); }
+
+.topup-skip-note {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-subtle);
+  margin-top: 10px;
+}
 
 .topup-success {
   text-align: center;
