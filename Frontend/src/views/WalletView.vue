@@ -516,6 +516,7 @@ const adminPendingAmount = computed(() =>
             </template>
           </button>
         </div>
+        <p class="topup-skip-note">skipped the authentication process for bank and touchNgo</p>
       </template>
 
     </div>
