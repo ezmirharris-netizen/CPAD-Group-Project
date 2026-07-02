@@ -223,6 +223,34 @@ addPendingPaymentForUser(userId, booking) {
       this.balance = +((this.balance + n).toFixed(2))
       this.transactions.unshift({ id: Date.now(), title: 'Wallet Top-up', amount: `+RM${n}`, type: 'income', date: new Date().toISOString().slice(0, 10) })
       this._persist()
+    },
+
+    // Move money from a tutor's teaching earnings (tutorBalance) into
+    // their own spending wallet (balance), so they can use what they've
+    // earned to book other tutors. Returns {success, error} so the UI
+    // can show a message without throwing.
+    withdrawToSpending(amount) {
+      const n = +Number(amount).toFixed(2)
+      const today = new Date().toISOString().slice(0, 10)
+
+      if (!n || n <= 0) {
+        return { success: false, error: 'Enter an amount greater than RM0.' }
+      }
+      if (n > this.tutorBalance) {
+        return { success: false, error: 'That is more than your available teaching balance.' }
+      }
+
+      this.tutorBalance = +((this.tutorBalance - n).toFixed(2))
+      this.tutorTransactions = [
+        { id: Date.now(), title: 'Withdrawn to Spending Wallet', amount: `-RM${n}`, type: 'expense', date: today },
+        ...this.tutorTransactions
+      ]
+
+      this.balance = +((this.balance + n).toFixed(2))
+      this.transactions.unshift({ id: Date.now() + 1, title: 'Withdrawal from Teaching Earnings', amount: `+RM${n}`, type: 'income', date: today })
+
+      this._persist()
+      return { success: true }
     }
   }
 })
