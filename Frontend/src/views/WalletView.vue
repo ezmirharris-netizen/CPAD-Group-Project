@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useWalletStore }  from '../stores/wallet'
 import { useBookingStore } from '../stores/booking'
 import { useAuthStore }    from '../stores/auth'
@@ -8,40 +8,83 @@ const walletStore  = useWalletStore()
 const bookingStore = useBookingStore()
 const authStore    = useAuthStore()
 
-// ── Withdraw teaching earnings → spending wallet ──
-const showWithdrawForm = ref(false)
-const withdrawAmount   = ref('')
-const withdrawError    = ref('')
-const withdrawSuccess  = ref(false)
+// ── Add Balance (Top-up) modal ──────────────────────────────────────────────
+const banks = [
+  'Maybank2u',
+  'CIMB Clicks',
+  'Public Bank (PBe)',
+  'RHB Now',
+  'Hong Leong Connect',
+  'Bank Islam GO',
+  'AmOnline',
+  'Bank Rakyat'
+]
 
-function openWithdrawForm() {
-  withdrawAmount.value  = ''
-  withdrawError.value   = ''
-  withdrawSuccess.value = false
-  showWithdrawForm.value = true
+const showTopUpModal = ref(false)
+const topUpStep      = ref(1)      // 1 = enter amount + method, 2 = confirm & pay
+const topUpProcessing = ref(false)
+const topUpSuccess    = ref(false)
+const topUpError      = ref('')
+
+const topUpForm = reactive({
+  amount: '',
+  method: '',     // 'banking' | 'touchngo'
+  bank: ''
+})
+
+function openTopUpModal() {
+  topUpForm.amount = ''
+  topUpForm.method = ''
+  topUpForm.bank   = ''
+  topUpStep.value      = 1
+  topUpProcessing.value = false
+  topUpSuccess.value    = false
+  topUpError.value      = ''
+  showTopUpModal.value  = true
 }
 
-function closeWithdrawForm() {
-  showWithdrawForm.value = false
+function closeTopUpModal() {
+  showTopUpModal.value = false
 }
 
-function withdrawAll() {
-  withdrawAmount.value = walletStore.tutorBalance.toFixed(2)
-}
+function goToPaymentStep() {
+  topUpError.value = ''
+  const amt = Number(topUpForm.amount)
 
-function submitWithdraw() {
-  withdrawError.value   = ''
-  withdrawSuccess.value = false
-
-  const result = walletStore.withdrawToSpending(withdrawAmount.value)
-  if (!result.success) {
-    withdrawError.value = result.error
+  if (!amt || amt <= 0) {
+    topUpError.value = 'Please enter a valid amount.'
+    return
+  }
+  if (!topUpForm.method) {
+    topUpError.value = 'Please choose a payment method.'
+    return
+  }
+  if (topUpForm.method === 'banking' && !topUpForm.bank) {
+    topUpError.value = 'Please select your bank.'
     return
   }
 
-  withdrawSuccess.value = true
-  withdrawAmount.value  = ''
-  setTimeout(() => { showWithdrawForm.value = false; withdrawSuccess.value = false }, 1500)
+  topUpStep.value = 2
+}
+
+function backToDetailsStep() {
+  topUpStep.value = 1
+  topUpError.value = ''
+}
+
+function proceedWithPayment() {
+  topUpProcessing.value = true
+
+  // Mock payment processing delay — no real bank/TNG connection is made.
+  setTimeout(() => {
+    walletStore.topUp(Number(topUpForm.amount))
+    topUpProcessing.value = false
+    topUpSuccess.value = true
+
+    setTimeout(() => {
+      closeTopUpModal()
+    }, 1400)
+  }, 900)
 }
 
 onMounted(() => {
@@ -134,6 +177,9 @@ const adminPendingAmount = computed(() =>
             RM{{ walletStore.totalPending.toFixed(2) }} Pending
           </span>
         </div>
+        <button class="btn-large" style="margin-top:18px" @click="openTopUpModal">
+          <i class="fa-solid fa-plus"></i> Add Balance
+        </button>
       </div>
 
       <div class="wallet-records">
@@ -213,43 +259,6 @@ const adminPendingAmount = computed(() =>
         <h1>RM {{ walletStore.tutorBalance.toFixed(2) }}</h1>
         <div style="margin-top:20px">
           <span class="badge badge-success">Ready To Withdraw</span>
-        </div>
-
-        <button
-          v-if="!showWithdrawForm"
-          class="btn-outline"
-          style="margin-top:16px;width:100%"
-          :disabled="walletStore.tutorBalance <= 0"
-          @click="openWithdrawForm"
-        >
-          💳 Withdraw to Spending Wallet
-        </button>
-
-        <div v-else style="margin-top:16px;width:100%;text-align:left">
-          <label style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">
-            Amount (RM)
-          </label>
-          <div style="display:flex;gap:8px;margin-top:6px">
-            <input
-              v-model="withdrawAmount"
-              type="number"
-              min="0"
-              :max="walletStore.tutorBalance"
-              step="0.01"
-              placeholder="e.g. 50"
-              style="flex:1"
-              @keyup.enter="submitWithdraw"
-            />
-            <button class="btn-outline" style="padding:8px 12px;white-space:nowrap" @click="withdrawAll">Max</button>
-          </div>
-
-          <p v-if="withdrawError" style="color:var(--danger);font-size:.82rem;margin-top:8px">⚠ {{ withdrawError }}</p>
-          <p v-if="withdrawSuccess" style="color:var(--success);font-size:.82rem;margin-top:8px">✓ Withdrawn! Check your Spending Wallet.</p>
-
-          <div style="display:flex;gap:10px;margin-top:12px">
-            <button class="btn-outline" style="flex:1" @click="closeWithdrawForm">Cancel</button>
-            <button style="flex:1" @click="submitWithdraw">Confirm</button>
-          </div>
         </div>
       </div>
 
@@ -407,6 +416,111 @@ const adminPendingAmount = computed(() =>
     </div>
 
   </template>
+
+  <!-- ══════════════════════  ADD BALANCE MODAL  ══════════════════════════ -->
+  <div v-if="showTopUpModal" class="modal-backdrop" @click.self="!topUpProcessing && closeTopUpModal()">
+    <div class="modal-window topup-modal">
+      <button v-if="!topUpProcessing" class="modal-close" @click="closeTopUpModal">✕</button>
+
+      <!-- Success state -->
+      <div v-if="topUpSuccess" class="topup-success">
+        <div class="topup-success-icon"><i class="fa-solid fa-circle-check"></i></div>
+        <h2>Top-up Successful!</h2>
+        <p style="color:var(--text-muted)">
+          RM {{ Number(topUpForm.amount).toFixed(2) }} has been added to your wallet.
+        </p>
+      </div>
+
+      <!-- Step 1: amount + method -->
+      <template v-else-if="topUpStep === 1">
+        <h2 style="margin-bottom:6px">Add Balance</h2>
+        <p style="color:var(--text-muted);margin-bottom:22px">Top up your SkillSwap wallet via online banking or e-wallet.</p>
+
+        <div class="form-group">
+          <label>Amount (RM) <span style="color:var(--danger)">*</span></label>
+          <input type="number" v-model="topUpForm.amount" min="1" step="0.01" placeholder="e.g. 50">
+        </div>
+
+        <div class="form-group">
+          <label>Payment Method <span style="color:var(--danger)">*</span></label>
+          <div class="payment-method-grid">
+            <button
+              type="button"
+              class="payment-method-option"
+              :class="{ active: topUpForm.method === 'banking' }"
+              @click="topUpForm.method = 'banking'"
+            >
+              <i class="fa-solid fa-building-columns"></i>
+              <span>Online Banking</span>
+            </button>
+            <button
+              type="button"
+              class="payment-method-option"
+              :class="{ active: topUpForm.method === 'touchngo' }"
+              @click="topUpForm.method = 'touchngo'; topUpForm.bank = ''"
+            >
+              <i class="fa-solid fa-wallet"></i>
+              <span>Touch 'n Go eWallet</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group" v-if="topUpForm.method === 'banking'">
+          <label>Select Bank <span style="color:var(--danger)">*</span></label>
+          <select v-model="topUpForm.bank">
+            <option value="" disabled>Choose your bank…</option>
+            <option v-for="b in banks" :key="b" :value="b">{{ b }}</option>
+          </select>
+        </div>
+
+        <div v-if="topUpError" style="color:var(--danger);font-size:.88rem;margin-top:6px">⚠ {{ topUpError }}</div>
+
+        <div style="display:flex;gap:12px;margin-top:20px">
+          <button class="btn-outline" style="flex:1" @click="closeTopUpModal">Cancel</button>
+          <button style="flex:1" @click="goToPaymentStep">Continue</button>
+        </div>
+      </template>
+
+      <!-- Step 2: confirm & pay -->
+      <template v-else-if="topUpStep === 2">
+        <h2 style="margin-bottom:6px">Confirm Payment</h2>
+        <p style="color:var(--text-muted);margin-bottom:22px">Review your top-up details before proceeding.</p>
+
+        <div class="topup-summary">
+          <div class="topup-summary-row">
+            <span>Amount</span>
+            <strong>RM {{ Number(topUpForm.amount).toFixed(2) }}</strong>
+          </div>
+          <div class="topup-summary-row">
+            <span>Payment Method</span>
+            <strong>{{ topUpForm.method === 'banking' ? 'Online Banking' : "Touch 'n Go eWallet" }}</strong>
+          </div>
+          <div class="topup-summary-row" v-if="topUpForm.method === 'banking'">
+            <span>Bank</span>
+            <strong>{{ topUpForm.bank }}</strong>
+          </div>
+        </div>
+
+        <p style="font-size:0.78rem;color:var(--text-subtle);margin-top:14px">
+          This is a demo checkout — no real bank or Touch 'n Go connection is made.
+        </p>
+
+        <div style="display:flex;gap:12px;margin-top:20px">
+          <button class="btn-outline" style="flex:1" :disabled="topUpProcessing" @click="backToDetailsStep">Back</button>
+          <button style="flex:1" :disabled="topUpProcessing" @click="proceedWithPayment">
+            <template v-if="topUpProcessing">
+              <i class="fa-solid fa-spinner fa-spin"></i> Processing…
+            </template>
+            <template v-else>
+              Proceed with Payment
+            </template>
+          </button>
+        </div>
+        <p class="topup-skip-note">skipped the authentication process for bank and touchNgo</p>
+      </template>
+
+    </div>
+  </div>
 
 </div>
 
