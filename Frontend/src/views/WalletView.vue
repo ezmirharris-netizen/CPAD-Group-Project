@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useWalletStore }  from '../stores/wallet'
 import { useBookingStore } from '../stores/booking'
 import { useAuthStore }    from '../stores/auth'
@@ -7,6 +7,85 @@ import { useAuthStore }    from '../stores/auth'
 const walletStore  = useWalletStore()
 const bookingStore = useBookingStore()
 const authStore    = useAuthStore()
+
+// ── Add Balance (Top-up) modal ──────────────────────────────────────────────
+const banks = [
+  'Maybank2u',
+  'CIMB Clicks',
+  'Public Bank (PBe)',
+  'RHB Now',
+  'Hong Leong Connect',
+  'Bank Islam GO',
+  'AmOnline',
+  'Bank Rakyat'
+]
+
+const showTopUpModal = ref(false)
+const topUpStep      = ref(1)      // 1 = enter amount + method, 2 = confirm & pay
+const topUpProcessing = ref(false)
+const topUpSuccess    = ref(false)
+const topUpError      = ref('')
+
+const topUpForm = reactive({
+  amount: '',
+  method: '',     // 'banking' | 'touchngo'
+  bank: ''
+})
+
+function openTopUpModal() {
+  topUpForm.amount = ''
+  topUpForm.method = ''
+  topUpForm.bank   = ''
+  topUpStep.value      = 1
+  topUpProcessing.value = false
+  topUpSuccess.value    = false
+  topUpError.value      = ''
+  showTopUpModal.value  = true
+}
+
+function closeTopUpModal() {
+  showTopUpModal.value = false
+}
+
+function goToPaymentStep() {
+  topUpError.value = ''
+  const amt = Number(topUpForm.amount)
+
+  if (!amt || amt <= 0) {
+    topUpError.value = 'Please enter a valid amount.'
+    return
+  }
+  if (!topUpForm.method) {
+    topUpError.value = 'Please choose a payment method.'
+    return
+  }
+  if (topUpForm.method === 'banking' && !topUpForm.bank) {
+    topUpError.value = 'Please select your bank.'
+    return
+  }
+
+  topUpStep.value = 2
+}
+
+function backToDetailsStep() {
+  topUpStep.value = 1
+  topUpError.value = ''
+}
+
+function proceedWithPayment() {
+  topUpProcessing.value = true
+
+  // Mock payment processing delay — no real bank/TNG connection is made.
+  setTimeout(() => {
+    walletStore.topUp(Number(topUpForm.amount))
+    topUpProcessing.value = false
+    topUpSuccess.value = true
+
+    setTimeout(() => {
+      closeTopUpModal()
+    }, 1400)
+  }, 900)
+}
 
 onMounted(() => {
   if (authStore.isAdmin) {
@@ -98,6 +177,9 @@ const adminPendingAmount = computed(() =>
             RM{{ walletStore.totalPending.toFixed(2) }} Pending
           </span>
         </div>
+        <button class="btn-large" style="margin-top:18px" @click="openTopUpModal">
+          <i class="fa-solid fa-plus"></i> Add Balance
+        </button>
       </div>
 
       <div class="wallet-records">
@@ -335,6 +417,171 @@ const adminPendingAmount = computed(() =>
 
   </template>
 
+  <!-- ══════════════════════  ADD BALANCE MODAL  ══════════════════════════ -->
+  <div v-if="showTopUpModal" class="modal-backdrop" @click.self="!topUpProcessing && closeTopUpModal()">
+    <div class="modal-window topup-modal">
+      <button v-if="!topUpProcessing" class="modal-close" @click="closeTopUpModal">✕</button>
+
+      <!-- Success state -->
+      <div v-if="topUpSuccess" class="topup-success">
+        <div class="topup-success-icon"><i class="fa-solid fa-circle-check"></i></div>
+        <h2>Top-up Successful!</h2>
+        <p style="color:var(--text-muted)">
+          RM {{ Number(topUpForm.amount).toFixed(2) }} has been added to your wallet.
+        </p>
+      </div>
+
+      <!-- Step 1: amount + method -->
+      <template v-else-if="topUpStep === 1">
+        <h2 style="margin-bottom:6px">Add Balance</h2>
+        <p style="color:var(--text-muted);margin-bottom:22px">Top up your SkillSwap wallet via online banking or e-wallet.</p>
+
+        <div class="form-group">
+          <label>Amount (RM) <span style="color:var(--danger)">*</span></label>
+          <input type="number" v-model="topUpForm.amount" min="1" step="0.01" placeholder="e.g. 50">
+        </div>
+
+        <div class="form-group">
+          <label>Payment Method <span style="color:var(--danger)">*</span></label>
+          <div class="payment-method-grid">
+            <button
+              type="button"
+              class="payment-method-option"
+              :class="{ active: topUpForm.method === 'banking' }"
+              @click="topUpForm.method = 'banking'"
+            >
+              <i class="fa-solid fa-building-columns"></i>
+              <span>Online Banking</span>
+            </button>
+            <button
+              type="button"
+              class="payment-method-option"
+              :class="{ active: topUpForm.method === 'touchngo' }"
+              @click="topUpForm.method = 'touchngo'; topUpForm.bank = ''"
+            >
+              <i class="fa-solid fa-wallet"></i>
+              <span>Touch 'n Go eWallet</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group" v-if="topUpForm.method === 'banking'">
+          <label>Select Bank <span style="color:var(--danger)">*</span></label>
+          <select v-model="topUpForm.bank">
+            <option value="" disabled>Choose your bank…</option>
+            <option v-for="b in banks" :key="b" :value="b">{{ b }}</option>
+          </select>
+        </div>
+
+        <div v-if="topUpError" style="color:var(--danger);font-size:.88rem;margin-top:6px">⚠ {{ topUpError }}</div>
+
+        <div style="display:flex;gap:12px;margin-top:20px">
+          <button class="btn-outline" style="flex:1" @click="closeTopUpModal">Cancel</button>
+          <button style="flex:1" @click="goToPaymentStep">Continue</button>
+        </div>
+      </template>
+
+      <!-- Step 2: confirm & pay -->
+      <template v-else-if="topUpStep === 2">
+        <h2 style="margin-bottom:6px">Confirm Payment</h2>
+        <p style="color:var(--text-muted);margin-bottom:22px">Review your top-up details before proceeding.</p>
+
+        <div class="topup-summary">
+          <div class="topup-summary-row">
+            <span>Amount</span>
+            <strong>RM {{ Number(topUpForm.amount).toFixed(2) }}</strong>
+          </div>
+          <div class="topup-summary-row">
+            <span>Payment Method</span>
+            <strong>{{ topUpForm.method === 'banking' ? 'Online Banking' : "Touch 'n Go eWallet" }}</strong>
+          </div>
+          <div class="topup-summary-row" v-if="topUpForm.method === 'banking'">
+            <span>Bank</span>
+            <strong>{{ topUpForm.bank }}</strong>
+          </div>
+        </div>
+
+        <p style="font-size:0.78rem;color:var(--text-subtle);margin-top:14px">
+          This is a demo checkout — no real bank or Touch 'n Go connection is made.
+        </p>
+
+        <div style="display:flex;gap:12px;margin-top:20px">
+          <button class="btn-outline" style="flex:1" :disabled="topUpProcessing" @click="backToDetailsStep">Back</button>
+          <button style="flex:1" :disabled="topUpProcessing" @click="proceedWithPayment">
+            <template v-if="topUpProcessing">
+              <i class="fa-solid fa-spinner fa-spin"></i> Processing…
+            </template>
+            <template v-else>
+              Proceed with Payment (skipped the authentication process for bank and touchNgo)
+            </template>
+          </button>
+        </div>
+      </template>
+
+    </div>
+  </div>
+
 </div>
 
 </template>
+
+<style scoped>
+.topup-modal { max-width: 460px; }
+
+.payment-method-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.payment-method-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.payment-method-option i { font-size: 1.3rem; }
+.payment-method-option:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+.payment-method-option.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+}
+
+.topup-summary {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.topup-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+.topup-summary-row strong { color: var(--text-main); }
+
+.topup-success {
+  text-align: center;
+  padding: 20px 0 8px;
+}
+.topup-success-icon {
+  font-size: 3rem;
+  color: var(--success);
+  margin-bottom: 14px;
+}
+</style>
